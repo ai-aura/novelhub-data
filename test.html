@@ -159,6 +159,39 @@
       text-align: left;
     }
 
+    /* 🌀 Loader */
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 40px;
+    }
+
+    .loader {
+      width: 55px;
+      height: 55px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top: 4px solid #00c6ff;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 25px rgba(0,198,255,0.4);
+    }
+
+    @keyframes spin {
+      0% {transform: rotate(0deg);}
+      100% {transform: rotate(360deg);}
+    }
+
+    .loader-text {
+      margin-top: 10px;
+      color: #a7e3ff;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      opacity: 0.8;
+    }
+
     @media (max-width:600px){
       .container{width:95%;padding:20px 15px;}
       .logo{font-size:1.9rem;}
@@ -178,18 +211,20 @@
     <div id="lastOpened" class="last-opened" style="display:none;"></div>
 
     <div class="novel-list" id="pdfList">
-      <p style="color:#aaa;font-style:italic;">Loading novels from GitHub...</p>
+      <div class="loader-container">
+        <div class="loader"></div>
+        <div class="loader-text">Loading novels...</div>
+      </div>
     </div>
   </div>
 
   <script>
-    const username = "yourusername";   // 🔧 Replace with your GitHub username
-    const repo = "novelhub-data";      // 🔧 Replace with your repo
-    const folder = "novels";           // Folder with PDFs
-    const coverFolder = "covers";      // Folder with cover images
+    const username = "yourusername";  // Replace with your GitHub username
+    const repo = "novelhub-data";     // Replace with your repo
+    const folder = "novels";
+    const coverFolder = "covers";
     let allNovels = [];
 
-    // 🚀 Fetch PDFs
     async function loadPDFs() {
       const listDiv = document.getElementById("pdfList");
       try {
@@ -205,11 +240,10 @@
         renderNovels(allNovels);
         showLastOpened();
       } catch {
-        listDiv.innerHTML = "<p⚠️ Error loading novels.</p>";
+        listDiv.innerHTML = "<p>⚠️ Error loading novels.</p>";
       }
     }
 
-    // 🖼️ Render novel cards
     function renderNovels(list){
       const listDiv = document.getElementById("pdfList");
       listDiv.innerHTML = list.map((novel,i)=>`
@@ -219,14 +253,12 @@
         </div>`).join("");
     }
 
-    // 🔎 Search novels
     function searchNovels(){
       const query=document.getElementById("pdfLink").value.toLowerCase();
       const filtered=allNovels.filter(n=>n.title.toLowerCase().includes(query));
       renderNovels(filtered);
     }
 
-    // 📖 Open reader
     function openReader(){
       const input=document.getElementById("pdfLink").value.trim();
       if(!input) return alert("⚠️ Please enter a valid PDF link or name!");
@@ -242,13 +274,11 @@
       window.open(`reader.html?file=${encodeURIComponent(link)}`,"_blank");
     }
 
-    // 💾 Save last opened novel
     function saveLastOpened(title,url){
       localStorage.setItem("lastNovel",JSON.stringify({title,url,time:new Date().toLocaleString()}));
       showLastOpened();
     }
 
-    // 📦 Display last opened
     function showLastOpened(){
       const data=localStorage.getItem("lastNovel");
       if(!data) return;
