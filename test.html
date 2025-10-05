@@ -6,6 +6,7 @@
   <title>📚 Novel World ✨ - Online Library</title>
 
   <style>
+    /* 🌈 Vibrant Gradient Background */
     body {
       margin: 0;
       min-height: 100vh;
@@ -13,58 +14,81 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      background: radial-gradient(circle at top, #182848, #0f2027);
       font-family: "Poppins", sans-serif;
       color: white;
+      background: linear-gradient(135deg, #ff7eb3, #ff758c, #42a5f5, #7b1fa2, #00c9ff);
+      background-size: 400% 400%;
+      animation: gradientMove 12s ease infinite;
       overflow-x: hidden;
       padding: 25px 0;
     }
 
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* ✨ Floating Animated Logo */
     .logo {
-      font-size: 2.3rem;
+      font-size: 2.5rem;
       font-weight: 700;
-      margin-bottom: 20px;
-      padding: 12px 25px;
-      background: rgba(255, 255, 255, 0.12);
+      margin-bottom: 25px;
+      padding: 12px 28px;
+      background: rgba(255, 255, 255, 0.15);
       border-radius: 20px;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(6px);
       border: 1px solid rgba(255, 255, 255, 0.25);
       animation: float 3s ease-in-out infinite;
-      background-image: linear-gradient(90deg, #00c6ff, #0072ff, #a777e3);
+      background-image: linear-gradient(90deg, #fff, #a6ffcb, #12d8fa, #1fa2ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 10px rgba(255,255,255,0.4);
     }
 
     @keyframes float {
-      0% {transform: translateY(0);}
-      50% {transform: translateY(-6px);}
-      100% {transform: translateY(0);}
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0); }
     }
 
+    /* 💎 Glass Container (higher transparency, lower blur) */
     .container {
       width: 90%;
       max-width: 600px;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(16px);
-      border-radius: 22px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(5px);
+      border-radius: 25px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
       padding: 25px;
       text-align: center;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(255, 255, 255, 0.18);
       animation: fadeInUp 0.8s ease-out;
+      transition: 0.4s;
+    }
+
+    .container:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(1.02);
     }
 
     @keyframes fadeInUp {
-      0% {opacity:0; transform:translateY(20px);}
-      100% {opacity:1; transform:translateY(0);}
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
 
     h1 {
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       margin-bottom: 10px;
-      background: linear-gradient(90deg,#00c6ff,#0072ff);
+      background: linear-gradient(90deg, #fff, #00c6ff, #0072ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      font-size: 0.9rem;
+      color: #e8f4ff;
+      margin-bottom: 20px;
     }
 
     input {
@@ -73,7 +97,7 @@
       border-radius: 12px;
       border: none;
       outline: none;
-      background: rgba(255,255,255,0.15);
+      background: rgba(255, 255, 255, 0.18);
       color: white;
       font-size: 0.95rem;
       text-align: center;
@@ -82,15 +106,15 @@
     }
 
     input:focus {
-      background: rgba(255,255,255,0.25);
-      box-shadow: 0 0 0 2px #00c6ff;
+      background: rgba(255, 255, 255, 0.28);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
     }
 
     button {
       width: 100%;
       margin-top: 5px;
       padding: 12px;
-      background: linear-gradient(90deg,#00c6ff,#0072ff);
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
       border: none;
       border-radius: 12px;
       color: white;
@@ -102,33 +126,34 @@
 
     button:hover {
       transform: scale(1.05);
-      box-shadow: 0 5px 20px rgba(0,114,255,0.4);
+      box-shadow: 0 5px 25px rgba(0,114,255,0.4);
     }
 
+    /* 📚 Novel List */
     .novel-list {
       margin-top: 25px;
       text-align: left;
       max-height: 400px;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.2) transparent;
+      scrollbar-color: rgba(255,255,255,0.3) transparent;
     }
 
     .novel-item {
       display: flex;
       align-items: center;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.12);
       border-radius: 12px;
       padding: 8px 10px;
       margin-bottom: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
       opacity: 0;
       animation: fadeUp 0.6s ease forwards;
     }
 
     @keyframes fadeUp {
-      0% {opacity:0; transform:translateY(10px);}
-      100% {opacity:1; transform:translateY(0);}
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
 
     .cover {
@@ -142,21 +167,27 @@
 
     .novel-title {
       flex: 1;
-      color: #00c6ff;
+      color: #fff;
       font-weight: 600;
       font-size: 0.95rem;
       cursor: pointer;
       text-decoration: none;
+      transition: 0.3s;
     }
-    .novel-title:hover {color:#a4e6ff;}
+
+    .novel-title:hover {
+      color: #a4e6ff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
 
     .last-opened {
-      background: rgba(255,255,255,0.1);
-      border-left: 4px solid #00c6ff;
+      background: rgba(255,255,255,0.15);
+      border-left: 4px solid #fff;
       margin-bottom: 15px;
       padding: 8px 10px;
       border-radius: 10px;
       text-align: left;
+      box-shadow: 0 4px 15px rgba(255,255,255,0.15);
     }
 
     /* 🌀 Loader */
@@ -172,11 +203,9 @@
       width: 55px;
       height: 55px;
       border: 4px solid rgba(255,255,255,0.2);
-      border-top: 4px solid #00c6ff;
+      border-top: 4px solid #fff;
       border-radius: 50%;
       animation: spin 1.2s linear infinite;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 0 25px rgba(0,198,255,0.4);
     }
 
     @keyframes spin {
@@ -186,15 +215,15 @@
 
     .loader-text {
       margin-top: 10px;
-      color: #a7e3ff;
+      color: #fff;
       font-size: 0.9rem;
       letter-spacing: 1px;
-      opacity: 0.8;
+      opacity: 0.85;
     }
 
-    @media (max-width:600px){
-      .container{width:95%;padding:20px 15px;}
-      .logo{font-size:1.9rem;}
+    @media (max-width:600px) {
+      .container { width: 94%; padding: 20px 15px; }
+      .logo { font-size: 2rem; }
     }
   </style>
 </head>
@@ -219,8 +248,8 @@
   </div>
 
   <script>
-    const username = "ai-modren-tools";  // Replace with your GitHub username
-    const repo = "novelhub-data";     // Replace with your repo
+    const username = "ai-modren-tools";  // ✅ Your GitHub username
+    const repo = "novelhub-data";        // ✅ Your repository name
     const folder = "novels";
     const coverFolder = "covers";
     let allNovels = [];
@@ -292,4 +321,3 @@
   </script>
 </body>
 </html>
-
