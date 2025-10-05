@@ -1,61 +1,171 @@
-# novelhub-data
- 
-📚 NovelHub Data Repository
+# 📚 Urdu Novel Online Reader
 
-This repository powers the NovelHub Flutter application by hosting structured novel metadata in a simple, free, and open format.
+A beautiful, modern, and feature-rich online PDF reader designed specifically for Urdu novels. Perfect for integration with Blogger websites.
 
-🔑 Purpose
+## ✨ Features
 
-Store all novel metadata in one place (novels.json).
+### 🎨 Modern UI Design
+- **Glassmorphism** design with blur effects
+- Smooth animations and transitions
+- Dark/Light mode support
+- Mobile-responsive layout
 
-Provide lightweight, static hosting via GitHub Pages so the app can fetch and display novels without a backend server.
+### 📖 Reading Features
+- PDF rendering with Mozilla PDF.js
+- Page navigation (Previous/Next)
+- Zoom controls (In/Out/Fit to Width)
+- Keyboard shortcuts support
+- RTL (Right-to-Left) layout for Urdu
 
-Keep novel files hosted externally (e.g., MediaFire for PDFs, Pinterest or CDN links for cover images).
+### ⚙️ Customization
+- Three background colors (White/Sepia/Dark)
+- Theme persistence with localStorage
+- Fullscreen mode
+- PDF download option
 
-🗂️ Repository Contents
+### 💰 Monetization
+- Automatic ad display after every 20 pages
+- Exit confirmation with ad display
+- Non-intrusive ad integration
 
-novels.json → The main metadata file containing all novel entries. Each entry includes:
+## 🚀 Quick Start
 
-id: Unique novel ID.
+### Step 1: Upload Your PDF
+Upload your Urdu novel PDF to GitHub:
+```
+https://github.com/YOUR_USERNAME/YOUR_REPO/
+└── novels/
+    └── your-novel.pdf
+```
 
-title: Title of the novel.
+### Step 2: Get Raw URL
+Get the raw URL of your PDF:
+```
+https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/novels/your-novel.pdf
+```
 
-author: Author name.
+### Step 3: Create Reader Link
+Use the reader with your PDF:
+```html
+<a href="reader.html?file=https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/novels/your-novel.pdf">
+  Read Online
+</a>
+```
 
-description: Short synopsis.
+## 📱 Blogger Integration
 
-coverUrl: Link to the novel’s cover image (Pinterest/CDN).
+Add this code to your Blogger post:
 
-pdfUrl: Direct link to the novel PDF (MediaFire, Drive, etc.).
+```html
+<!-- Download Button -->
+<div style="text-align: center; margin: 20px 0;">
+  <a href="YOUR_PDF_URL" download class="download-btn">
+    Download PDF
+  </a>
+</div>
 
-genre: Novel category (Fantasy, Romance, etc.).
+<!-- Online Reader Button -->
+<div style="text-align: center; margin: 20px 0;">
+  <a href="reader.html?file=YOUR_PDF_URL" target="_blank" class="read-online-btn">
+    آن لائن پڑھیں
+  </a>
+</div>
 
-createdAt: Upload date.
+<style>
+.download-btn, .read-online-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  margin: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-family: 'Noto Nastaliq Urdu', sans-serif;
+  transition: transform 0.3s;
+}
 
-isFeatured: Boolean flag for homepage highlight.
+.download-btn:hover, .read-online-btn:hover {
+  transform: translateY(-2px);
+}
+</style>
+```
 
-downloadCount: Counter updated in-app when downloaded.
+## 💻 Keyboard Shortcuts
 
-/covers/ (optional, if you want to upload cover images here instead of Pinterest).
+| Key | Action |
+|-----|--------|
+| `←` | Next Page (RTL) |
+| `→` | Previous Page (RTL) |
+| `+` | Zoom In |
+| `-` | Zoom Out |
+| `F` | Fullscreen |
+| `ESC` | Close Modals |
 
-README.md → Documentation on how to update novels.json safely.
+## 🎯 Ad Integration
 
-🌍 Hosting
+✅ **Ads Successfully Integrated!**
 
-The repository is configured with GitHub Pages to serve novels.json as a public API endpoint, e.g.:
+Your tinysentgrowled.com ad network is now fully integrated:
 
-https://your-username.github.io/novelhub-data/novels.json
+1. **Regular Break Ad** (every 20 pages):
+   - Native Ad Script: `659cb4b7b49223ba9c2448ddbec930bd`
+   - Additional Ad: `7ba08fc0cc0443b580d9b5e673cd42c2`
 
-📝 Updating Novels
+2. **Exit Confirmation Ad**:
+   - Same ad scripts with separate containers
+   - Displays when user attempts to exit
 
-Add your new novel details in novels.json.
+**Ad Features:**
+- Auto-close after 15 seconds (break ads)
+- Mobile responsive design
+- Centered layout with proper spacing
+- Professional animation effects
 
-Commit changes with a clear message (e.g., Added "The Time Traveler" novel).
+## 📊 Technical Details
 
-Push to GitHub → changes will be live automatically.
+- **Single File**: Everything in one HTML file
+- **CDN Dependencies**: 
+  - PDF.js v3.11.174
+  - Font Awesome v6.5.1
+  - Noto Nastaliq Urdu (Google Fonts)
+- **Browser Support**: Chrome, Firefox, Safari, Edge (Latest versions)
+- **Mobile Support**: Android & iOS browsers
 
-⚠️ Notes
+## 🔧 Customization
 
-No Firebase / Backend: This repo is static-only; it holds metadata and external links, not PDFs.
+### Change Ad Frequency
+Edit line ~599 in `reader.html`:
+```javascript
+let adInterval = 20; // Change number to show ad after X pages
+```
 
-Free-tier friendly: Uses GitHub Pages, MediaFire, and Pinterest → no hosting costs.
+### Modify Colors
+Edit CSS variables in `:root` section (lines ~27-37)
+
+### Add More Fonts
+Add font links in `<head>` and update `font-family` in CSS
+
+## 📝 Example URLs
+
+Test the reader with these example formats:
+```
+reader.html?file=https://example.com/novel.pdf
+reader.html?file=https://raw.githubusercontent.com/user/repo/main/book.pdf
+reader.html?file=https://yourdomain.com/path/to/novel.pdf
+```
+
+## 🤝 Support
+
+For issues or questions:
+1. Check if PDF URL is accessible
+2. Ensure PDF is not password-protected
+3. Verify CORS settings if hosting on custom domain
+4. Test in different browsers
+
+## 📄 License
+
+Free to use for personal and commercial projects.
+
+---
+
+**Made with ❤️ for Urdu Literature**

@@ -1,0 +1,2475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Online PDF Reader - Fast & Modern</title>
+    
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        /* ==================== Global Reset & Variables ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --shadow-soft: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            --shadow-hard: 0 4px 20px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --toolbar-height: 60px;
+        }
+        
+        /* Dark Mode Variables */
+        [data-theme="dark"] {
+            --glass-bg: rgba(30, 30, 30, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #b8b8b8;
+            --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            --primary-gradient: linear-gradient(135deg, #3a3a52 0%, #16161d 100%);
+        }
+        
+        /* Base Styles */
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: var(--text-primary);
+            overflow: hidden;
+            position: relative;
+            transition: var(--transition);
+            /* Safe area padding for mobile devices */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        /* Loading Screen */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--primary-gradient);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        
+        #loadingScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loader-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+        
+        .loader {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        .loader:nth-child(2) {
+            width: 80%;
+            height: 80%;
+            top: 10%;
+            left: 10%;
+            border-top-color: rgba(255, 255, 255, 0.7);
+            animation: spin 2s linear reverse infinite;
+        }
+        
+        .loader:nth-child(3) {
+            width: 60%;
+            height: 60%;
+            top: 20%;
+            left: 20%;
+            border-top-color: rgba(255, 255, 255, 0.5);
+            animation: spin 2.5s linear infinite;
+        }
+        
+        .loading-text {
+            margin-top: 30px;
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 600;
+            text-align: center;
+            background: linear-gradient(90deg, #fff, #a8c0ff, #fff);
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 3s linear infinite;
+        }
+        
+        .loading-dots {
+            display: inline-block;
+        }
+        
+        .loading-dots span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background: white;
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite both;
+        }
+        
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0; }
+        
+        /* Progress Bar */
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1001;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+        
+        /* Reading Info */
+        .reading-info {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px 15px;
+            font-size: 0.85rem;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .reading-time {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        /* Social Share Buttons */
+        .share-container {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 500;
+        }
+        
+        .share-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: 1.2rem;
+        }
+        
+        .share-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .share-whatsapp {
+            background: #25D366;
+        }
+        
+        .share-facebook {
+            background: #1877F2;
+        }
+        
+        .share-twitter {
+            background: #1DA1F2;
+        }
+        
+        .share-linkedin {
+            background: #0A66C2;
+        }
+        
+        .share-copy {
+            background: #6c757d;
+        }
+        
+        /* Animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Glass Morphism Components */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            box-shadow: var(--shadow-soft);
+        }
+        
+        /* Top Toolbar */
+        .top-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--toolbar-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+            animation: slideDown 0.5s ease;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0.95;
+            /* Ensure visibility on mobile */
+            transform: translateZ(0);
+            will-change: transform;
+        }
+        
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .novel-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        
+        /* Bottom Toolbar */
+        .bottom-toolbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--toolbar-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            gap: 20px;
+            z-index: 1000;
+            animation: slideUp 0.5s ease;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0.95;
+            /* Ensure visibility on mobile */
+            transform: translateZ(0);
+            will-change: transform;
+        }
+        
+        /* Buttons */
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-icon {
+            background: transparent;
+            padding: 8px;
+            min-width: 40px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+        }
+        
+        /* Page Display */
+        .page-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        /* PDF Viewer Container */
+        #pdfContainer {
+            position: fixed;
+            top: var(--toolbar-height);
+            bottom: var(--toolbar-height);
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            overflow-y: auto;
+            overflow-x: auto;
+            width: 100%;
+            height: calc(100vh - calc(var(--toolbar-height) * 2));
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y pinch-zoom;
+        }
+        
+        #pdfCanvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: var(--shadow-hard);
+            background: white;
+            display: block;
+            margin: 0 auto;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        #pdfCanvas.fade-out {
+            opacity: 0;
+            transform: scale(0.98);
+        }
+        
+        #pdfCanvas.slide-left {
+            animation: slideLeft 0.3s ease forwards;
+        }
+        
+        #pdfCanvas.slide-right {
+            animation: slideRight 0.3s ease forwards;
+        }
+        
+        /* Page Transition Animations */
+        @keyframes slideLeft {
+            0% { transform: translateX(20px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideRight {
+            0% { transform: translateX(-20px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Auto Scroll Indicator */
+        .auto-scroll-indicator {
+            position: fixed;
+            bottom: calc(var(--toolbar-height) + 20px);
+            right: 20px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 999;
+            animation: pulse 2s ease infinite;
+        }
+        
+        .auto-scroll-indicator.active {
+            display: flex;
+        }
+        
+        .auto-scroll-indicator i {
+            animation: spin 2s linear infinite;
+        }
+        
+        /* Focus Mode Styles */
+        .focus-mode #pdfContainer {
+            top: 0;
+            bottom: 0;
+            height: 100vh;
+        }
+        
+        .focus-mode .top-toolbar {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        
+        .focus-mode .bottom-toolbar {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        
+        .focus-mode .share-container {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .focus-mode .reading-info {
+            opacity: 0;
+        }
+        
+        .exit-focus-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 2000;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            transition: all 0.3s ease;
+        }
+        
+        .exit-focus-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.05);
+        }
+        
+        .focus-mode .exit-focus-btn {
+            display: block;
+        }
+        
+        /* Settings Menu */
+        .settings-dropdown {
+            position: absolute;
+            top: calc(var(--toolbar-height) + 10px);
+            right: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: var(--shadow-soft);
+            min-width: 250px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            z-index: 1002;
+        }
+        
+        .settings-dropdown.active {
+            display: block;
+        }
+        
+        .settings-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .settings-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        /* Ad Frame Styles */
+        .ad-frame {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 200px;
+            animation: fadeIn 0.5s ease;
+            text-align: center;
+        }
+        
+        .ad-frame #ad-slot,
+        .ad-frame #exit-ad-slot {
+            margin-bottom: 15px;
+        }
+        
+        .ad-frame #extra-ad-slot,
+        .ad-frame #exit-extra-ad-slot {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Mobile ad responsiveness */
+        @media (max-width: 768px) {
+            .ad-frame {
+                padding: 15px;
+                margin: 15px 0;
+            }
+            
+            .ad-frame #extra-ad-slot,
+            .ad-frame #exit-extra-ad-slot {
+                flex-direction: column;
+            }
+        }
+        
+        /* Error Message */
+        .error-message {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-primary);
+        }
+        
+        .error-message i {
+            font-size: 4rem;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+        
+        /* Theme Toggle Switch */
+        .theme-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .theme-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+        
+        [data-theme="dark"] .theme-switch::after {
+            right: auto;
+            left: 3px;
+        }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: var(--text-primary);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 2000;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            :root {
+                --toolbar-height: 50px;
+            }
+            
+            /* Optimize PDF container for mobile */
+            #pdfContainer {
+                position: fixed;
+                top: 50px;
+                bottom: 50px;
+                left: 0;
+                right: 0;
+                height: calc(100vh - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+                padding: 10px;
+                overflow-y: auto;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* Toolbar optimization */
+            .top-toolbar {
+                height: 50px;
+                padding: 0 10px;
+                top: env(safe-area-inset-top, 0);
+            }
+            
+            .bottom-toolbar {
+                height: 50px;
+                padding: 0 10px;
+                bottom: env(safe-area-inset-bottom, 0);
+                gap: 5px;
+                justify-content: space-around;
+                /* Ensure always visible */
+                display: flex !important;
+            }
+            
+            /* Hide text labels on mobile, show only icons */
+            .btn span {
+                display: none;
+            }
+            
+            /* Icon-only buttons for mobile */
+            .btn {
+                padding: 8px;
+                font-size: 16px;
+                min-width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .btn i {
+                font-size: 16px;
+                margin: 0;
+            }
+            
+            .btn-icon {
+                min-width: 36px;
+                width: 36px;
+            }
+            
+            /* Compact title */
+            .novel-title {
+                font-size: 14px;
+                max-width: 120px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            /* Page info compact */
+            .page-info {
+                font-size: 12px;
+                padding: 4px 8px;
+                min-width: auto;
+            }
+            
+            /* Hide reading info and share buttons on mobile */
+            .reading-info {
+                display: none;
+            }
+            
+            .share-container {
+                display: none;
+            }
+            
+            /* Settings dropdown mobile optimized */
+            .settings-dropdown {
+                right: 10px;
+                left: auto;
+                width: calc(100% - 20px);
+                max-width: 300px;
+                top: 55px;
+            }
+            
+            /* Auto scroll indicator mobile */
+            .auto-scroll-indicator {
+                bottom: 60px;
+                right: 10px;
+                padding: 6px 12px;
+                font-size: 0.75rem;
+            }
+            
+            /* Focus mode exit button mobile */
+            .exit-focus-btn {
+                top: 10px;
+                left: 10px;
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Ultra compact for very small screens */
+            :root {
+                --toolbar-height: 45px;
+            }
+            
+            #pdfContainer {
+                position: fixed;
+                top: 45px;
+                bottom: 45px;
+                left: 0;
+                right: 0;
+                height: calc(100vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+                padding: 5px;
+            }
+            
+            .top-toolbar {
+                height: 45px;
+                padding: 0 8px;
+                top: env(safe-area-inset-top, 0);
+            }
+            
+            .bottom-toolbar {
+                height: 45px;
+                padding: 0 8px;
+                bottom: env(safe-area-inset-bottom, 0);
+                /* Ensure visibility */
+                display: flex !important;
+                opacity: 0.95 !important;
+            }
+            
+            .toolbar-section {
+                gap: 4px;
+            }
+            
+            .btn {
+                min-width: 32px;
+                height: 32px;
+                padding: 6px;
+            }
+            
+            .btn i {
+                font-size: 14px;
+            }
+            
+            .novel-title {
+                font-size: 12px;
+                max-width: 100px;
+            }
+            
+            .page-info {
+                font-size: 11px;
+                padding: 3px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <div class="loader-container">
+            <div class="loader"></div>
+            <div class="loader"></div>
+            <div class="loader"></div>
+        </div>
+        <div class="loading-text">
+            Loading Your Document
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auto Scroll Indicator -->
+    <div class="auto-scroll-indicator" id="autoScrollIndicator">
+        <i class="fas fa-sync-alt"></i>
+        <span>Auto Scroll Active</span>
+    </div>
+    
+    <!-- Reading Info -->
+    <div class="reading-info" id="readingInfo" style="display: none;">
+        <div class="reading-time">
+            <i class="fas fa-clock"></i>
+            <span id="estimatedTime">0 min</span>
+        </div>
+        <div class="reading-progress">
+            <span id="progressPercent">0%</span>
+        </div>
+    </div>
+    
+    <!-- Social Share Buttons -->
+    <div class="share-container">
+        <button class="share-btn share-whatsapp" onclick="shareWhatsApp()" title="Share on WhatsApp">
+            <i class="fab fa-whatsapp"></i>
+        </button>
+        <button class="share-btn share-facebook" onclick="shareFacebook()" title="Share on Facebook">
+            <i class="fab fa-facebook-f"></i>
+        </button>
+        <button class="share-btn share-twitter" onclick="shareTwitter()" title="Share on Twitter">
+            <i class="fab fa-twitter"></i>
+        </button>
+        <button class="share-btn share-linkedin" onclick="shareLinkedIn()" title="Share on LinkedIn">
+            <i class="fab fa-linkedin-in"></i>
+        </button>
+        <button class="share-btn share-copy" onclick="copyLink()" title="Copy Link">
+            <i class="fas fa-link"></i>
+        </button>
+    </div>
+    
+    <!-- Top Toolbar -->
+    <div class="top-toolbar glass">
+        <div class="toolbar-section">
+            <button class="btn btn-icon" onclick="goBack()" title="Go Back">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <button class="btn btn-icon" onclick="refreshReader()" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <div class="novel-title" id="novelTitle">PDF Document</div>
+        </div>
+        
+        <div class="toolbar-section">
+            <div class="theme-switch" onclick="toggleTheme()" title="Toggle Theme"></div>
+            <button class="btn btn-icon" onclick="toggleSettings()" title="Settings">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Settings Dropdown -->
+    <div id="settingsDropdown" class="settings-dropdown">
+        <div class="settings-item" onclick="changeBackground('white')">
+            <span>White Background</span>
+            <i class="fas fa-circle" style="color: white;"></i>
+        </div>
+        <div class="settings-item" onclick="changeBackground('sepia')">
+            <span>Sepia Background</span>
+            <i class="fas fa-circle" style="color: #f4ecd8;"></i>
+        </div>
+        <div class="settings-item" onclick="changeBackground('dark')">
+            <span>Dark Background</span>
+            <i class="fas fa-circle" style="color: #1a1a1a;"></i>
+        </div>
+        <div class="settings-item" onclick="toggleFullscreen()">
+            <span>Fullscreen</span>
+            <i class="fas fa-expand"></i>
+        </div>
+        <div class="settings-item" onclick="downloadPDF()">
+            <span>Download PDF</span>
+            <i class="fas fa-download"></i>
+        </div>
+        <div class="settings-item" onclick="toggleFocusMode()">
+            <span>Focus Mode</span>
+            <i class="fas fa-eye"></i>
+        </div>
+        <div class="settings-item" onclick="toggleAutoScroll()">
+            <span>Auto Scroll</span>
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="settings-item" onclick="togglePageTransition()">
+            <span>Page Animations</span>
+            <i class="fas fa-magic"></i>
+        </div>
+    </div>
+    
+    <!-- PDF Container -->
+    <div id="pdfContainer">
+        <canvas id="pdfCanvas"></canvas>
+    </div>
+    
+    <!-- Bottom Toolbar -->
+    <div class="bottom-toolbar glass">
+        <button class="btn btn-icon" onclick="prevPage()" id="prevBtn" title="Previous Page">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <div class="page-info" id="pageInfo">
+            <span id="currentPage">0</span> / <span id="totalPages">0</span>
+        </div>
+        
+        <button class="btn btn-icon" onclick="nextPage()" id="nextBtn" title="Next Page">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        
+        <button class="btn btn-icon" onclick="zoomOut()" title="Zoom Out">
+            <i class="fas fa-search-minus"></i>
+        </button>
+        
+        <button class="btn btn-icon" onclick="zoomIn()" title="Zoom In">
+            <i class="fas fa-search-plus"></i>
+        </button>
+        
+        <button class="btn btn-icon" onclick="toggleFitWidth()" id="fitWidthBtn" title="Fit Width">
+            <i class="fas fa-arrows-alt-h"></i>
+        </button>
+    </div>
+    
+    <!-- Ad Modal -->
+    <div id="adModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Advertisement</div>
+            <div class="ad-frame">
+                <!--🧲 Native Ad-->
+                <div id="ad-slot" style="margin-bottom: 15px;">
+                    <script async="async" data-cfasync="false" src="//tinysentgrowled.com/659cb4b7b49223ba9c2448ddbec930bd/invoke.js"></script>
+                    <div id="container-659cb4b7b49223ba9c2448ddbec930bd"></div>
+                </div>
+
+                <!--📺 Additional Ad Below Native Ad-->
+                <div id="extra-ad-slot">
+                    <script type="text/javascript">
+                        atOptions = {
+                            'key': '7ba08fc0cc0443b580d9b5e673cd42c2',
+                            'format': 'iframe',
+                            'height': 50,
+                            'width': 320,
+                            'params': {}
+                        };
+                    </script>
+                    <script src="//tinysentgrowled.com/7ba08fc0cc0443b580d9b5e673cd42c2/invoke.js" type="text/javascript"></script>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="closeAdModal()">Close</button>
+        </div>
+    </div>
+    
+    <!-- Exit Confirmation Modal -->
+    <div id="exitModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Are you sure you want to exit?</div>
+            <p>Your reading progress will be saved</p>
+            <div class="ad-frame">
+                <!--🧲 Native Ad-->
+                <div id="exit-ad-slot" style="margin-bottom: 15px;">
+                    <script async="async" data-cfasync="false" src="//tinysentgrowled.com/659cb4b7b49223ba9c2448ddbec930bd/invoke.js"></script>
+                    <div id="container-659cb4b7b49223ba9c2448ddbec930bd-exit"></div>
+                </div>
+
+                <!--📺 Additional Exit Ad-->
+                <div id="exit-extra-ad-slot">
+                    <script type="text/javascript">
+                        atOptions = {
+                            'key': '7ba08fc0cc0443b580d9b5e673cd42c2',
+                            'format': 'iframe',
+                            'height': 50,
+                            'width': 320,
+                            'params': {}
+                        };
+                    </script>
+                    <script src="//tinysentgrowled.com/7ba08fc0cc0443b580d9b5e673cd42c2/invoke.js" type="text/javascript"></script>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="continueReading()">Continue Reading</button>
+                <button class="btn" onclick="exitAnyway()">Exit Anyway</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Exit Focus Mode Button -->
+    <button class="exit-focus-btn" onclick="exitFocusMode()">
+        <i class="fas fa-times"></i> Exit Focus Mode
+    </button>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        // ==================== Global Variables ====================
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let totalPages = 0;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 1.5;
+        let fitWidth = false;
+        let pdfUrl = '';
+        let adInterval = 20; // Show ad after every 20 pages
+        let pagesViewedSinceAd = 0;
+        
+        // Page cache system
+        const pageCache = new Map();
+        const CACHE_SIZE = 10; // Cache up to 10 pages
+        let preloadQueue = [];
+        let isPreloading = false;
+        
+        // Reading statistics
+        let startReadingTime = null;
+        let pagesRead = 0;
+        const AVERAGE_READING_SPEED = 2; // minutes per page
+        
+        // Auto scroll settings
+        let autoScrollEnabled = false;
+        let autoScrollInterval = null;
+        let autoScrollSpeed = 30; // pixels per second
+        
+        // Page transition settings
+        let pageTransitionEnabled = true;
+        let transitionDirection = 'next';
+        
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        // ==================== Initialization ====================
+        /**
+         * Initialize the reader when DOM is loaded
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get PDF URL from query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            pdfUrl = urlParams.get('file');
+            
+            // Load theme from localStorage
+            const savedTheme = localStorage.getItem('readerTheme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            
+            // Load animation preferences
+            loadAnimationPreferences();
+            
+            // Load saved progress
+            loadSavedProgress();
+            
+            // Load the PDF
+            if (pdfUrl) {
+                loadPDF(pdfUrl);
+            } else {
+                showError('Sorry, this document is currently unavailable.');
+            }
+            
+            // Set default fit width for mobile
+            if (window.innerWidth < 768) {
+                fitWidth = true;
+                // Ensure bottom toolbar is visible
+                const bottomToolbar = document.querySelector('.bottom-toolbar');
+                if (bottomToolbar) {
+                    bottomToolbar.style.display = 'flex';
+                    bottomToolbar.style.visibility = 'visible';
+                }
+            }
+            
+            // Setup event listeners
+            setupEventListeners();
+        });
+        
+        /**
+         * Setup all event listeners
+         */
+        function setupEventListeners() {
+            // Window resize handler
+            window.addEventListener('resize', debounce(function() {
+                if (pdfDoc && fitWidth) {
+                    renderPage(currentPageNum);
+                }
+            }, 300));
+            
+            // Keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                // Don't handle shortcuts in focus mode for Escape
+                if (document.body.classList.contains('focus-mode') && e.key === 'Escape') {
+                    exitFocusMode();
+                    return;
+                }
+                
+                // Handle spacebar for auto-scroll
+                if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    toggleAutoScroll();
+                    return;
+                }
+                
+                // Speed controls when auto-scroll is active
+                if (autoScrollEnabled) {
+                    if (e.key === ']') {
+                        adjustScrollSpeed(true);
+                        return;
+                    } else if (e.key === '[') {
+                        adjustScrollSpeed(false);
+                        return;
+                    }
+                }
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        prevPage();
+                        break;
+                    case 'ArrowRight':
+                        nextPage();
+                        break;
+                    case '+':
+                    case '=':
+                        zoomIn();
+                        break;
+                    case '-':
+                        zoomOut();
+                        break;
+                    case 'f':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            toggleFocusMode();
+                        } else {
+                            toggleFullscreen();
+                        }
+                        break;
+                    case 'Escape':
+                        closeAllModals();
+                        break;
+                }
+            });
+            
+            // Mouse wheel zoom and auto-scroll stop
+            document.getElementById('pdfContainer').addEventListener('wheel', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) {
+                        zoomIn();
+                    } else {
+                        zoomOut();
+                    }
+                } else if (autoScrollEnabled && !e.ctrlKey && !e.metaKey) {
+                    stopAutoScroll();
+                    showToast('Auto Scroll Stopped');
+                }
+            });
+            
+            // Exit confirmation
+            window.addEventListener('beforeunload', function(e) {
+                if (pdfDoc) {
+                    e.preventDefault();
+                    showExitModal();
+                    return '';
+                }
+            });
+            
+            // Click outside settings to close
+            document.addEventListener('click', function(e) {
+                const settings = document.getElementById('settingsDropdown');
+                const settingsBtn = e.target.closest('[onclick="toggleSettings()"]');
+                
+                if (!settings.contains(e.target) && !settingsBtn) {
+                    settings.classList.remove('active');
+                }
+            });
+            
+            // Mobile gesture support
+            setupMobileGestures();
+        }
+        
+        /**
+         * Setup mobile gesture controls
+         */
+        function setupMobileGestures() {
+            if (!('ontouchstart' in window)) return;
+            
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+            const minSwipeDistance = 50;
+            
+            const pdfContainer = document.getElementById('pdfContainer');
+            
+            // Touch start
+            pdfContainer.addEventListener('touchstart', function(e) {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            }, {passive: true});
+            
+            // Touch end
+            pdfContainer.addEventListener('touchend', function(e) {
+                touchEndX = e.changedTouches[0].screenX;
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipeGesture();
+            }, {passive: true});
+            
+            // Handle swipe gesture
+            function handleSwipeGesture() {
+                const deltaX = touchEndX - touchStartX;
+                const deltaY = touchEndY - touchStartY;
+                
+                // Ignore vertical swipes (for scrolling)
+                if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+                
+                // Horizontal swipe detection
+                if (Math.abs(deltaX) > minSwipeDistance) {
+                    if (deltaX > 0) {
+                        // Swipe right - previous page
+                        prevPage();
+                        // Haptic feedback if available
+                        if (window.navigator && navigator.vibrate) {
+                            navigator.vibrate(10);
+                        }
+                    } else {
+                        // Swipe left - next page
+                        nextPage();
+                        // Haptic feedback if available
+                        if (window.navigator && navigator.vibrate) {
+                            navigator.vibrate(10);
+                        }
+                    }
+                }
+            }
+            
+            // Double tap for zoom toggle
+            let lastTap = 0;
+            pdfContainer.addEventListener('touchend', function(e) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                
+                if (tapLength < 300 && tapLength > 0) {
+                    e.preventDefault();
+                    // Double tap detected - toggle fit width
+                    toggleFitWidth();
+                }
+                lastTap = currentTime;
+            });
+            
+            // Pinch zoom support
+            let initialPinchDistance = null;
+            let currentScale = scale;
+            
+            pdfContainer.addEventListener('touchmove', function(e) {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    
+                    const touch1 = e.touches[0];
+                    const touch2 = e.touches[1];
+                    const distance = Math.hypot(
+                        touch2.pageX - touch1.pageX,
+                        touch2.pageY - touch1.pageY
+                    );
+                    
+                    if (!initialPinchDistance) {
+                        initialPinchDistance = distance;
+                        currentScale = scale;
+                    } else {
+                        const pinchScale = distance / initialPinchDistance;
+                        scale = Math.min(4, Math.max(0.25, currentScale * pinchScale));
+                        fitWidth = false;
+                        queueRenderPage(currentPageNum);
+                    }
+                }
+            }, {passive: false});
+            
+            pdfContainer.addEventListener('touchend', function(e) {
+                if (e.touches.length < 2) {
+                    initialPinchDistance = null;
+                    if (scale !== currentScale) {
+                        updateZoomButtons();
+                        showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                    }
+                }
+            });
+            
+            // Three-finger tap to toggle toolbars (mobile-specific)
+            let threeFingerTapTimeout = null;
+            pdfContainer.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 3) {
+                    e.preventDefault();
+                    if (threeFingerTapTimeout) clearTimeout(threeFingerTapTimeout);
+                    threeFingerTapTimeout = setTimeout(() => {
+                        toggleMobileToolbars();
+                    }, 200);
+                }
+            });
+            
+            // Edge swipe to show/hide toolbars
+            let edgeSwipeStart = null;
+            pdfContainer.addEventListener('touchstart', function(e) {
+                const touch = e.touches[0];
+                // Check if swipe started from top or bottom edge
+                if (touch.clientY < 50 || touch.clientY > window.innerHeight - 50) {
+                    edgeSwipeStart = touch.clientY;
+                }
+            });
+            
+            pdfContainer.addEventListener('touchend', function(e) {
+                if (edgeSwipeStart !== null) {
+                    const touch = e.changedTouches[0];
+                    const deltaY = touch.clientY - edgeSwipeStart;
+                    
+                    // Swipe down from top or up from bottom
+                    if (Math.abs(deltaY) > 30) {
+                        toggleMobileToolbars();
+                    }
+                    edgeSwipeStart = null;
+                }
+            });
+        }
+        
+        // ==================== PDF Loading Functions ====================
+        /**
+         * Load PDF from URL with progressive loading
+         * @param {string} url - PDF URL to load
+         */
+        function loadPDF(url) {
+            // Show loading screen
+            showLoading(true);
+            startReadingTime = Date.now();
+            
+            // Extract document name from URL
+            const urlParts = url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
+            const docName = fileName.replace('.pdf', '').replace(/-/g, ' ');
+            document.getElementById('novelTitle').textContent = docName;
+            
+            // Load the PDF with progressive rendering
+            const loadingTask = pdfjsLib.getDocument({
+                url: url,
+                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                cMapPacked: true,
+                enableXfa: true
+            });
+            
+            loadingTask.promise.then(function(pdf) {
+                pdfDoc = pdf;
+                totalPages = pdf.numPages;
+                
+                // Update UI
+                document.getElementById('totalPages').textContent = totalPages;
+                document.getElementById('readingInfo').style.display = 'flex';
+                updateReadingTime();
+                
+                // Check for saved page
+                const savedPage = getSavedPage(url);
+                if (savedPage && savedPage > 1 && savedPage <= totalPages) {
+                    currentPageNum = savedPage;
+                    showToast(`Resumed from page ${savedPage}`);
+                }
+                
+                // Initial page render with immediate display
+                // Set fit width for mobile by default
+                if (window.innerWidth < 768 && !savedPage) {
+                    fitWidth = true;
+                }
+                renderPage(currentPageNum);
+                
+                // Start preloading adjacent pages
+                preloadAdjacentPages();
+                
+                // Hide loading after first page renders
+                setTimeout(() => showLoading(false), 100);
+                
+            }).catch(function(error) {
+                console.error('Error loading PDF:', error);
+                showError('Sorry, unable to load PDF. Please try again.');
+                showLoading(false);
+            });
+        }
+        
+        /**
+         * Render a specific page with caching
+         * @param {number} num - Page number to render
+         */
+        async function renderPage(num) {
+            if (!pdfDoc) return;
+            
+            pageRendering = true;
+            
+            // Check cache first
+            if (pageCache.has(num)) {
+                displayCachedPage(num);
+                pageRendering = false;
+                updatePageDisplay();
+                checkAdDisplay();
+                return;
+            }
+            
+            try {
+                // Get page
+                const page = await pdfDoc.getPage(num);
+                const canvas = document.getElementById('pdfCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Calculate scale
+                let viewport;
+                if (fitWidth) {
+                    const containerWidth = document.getElementById('pdfContainer').clientWidth - 40;
+                    const pageWidth = page.getViewport({scale: 1}).width;
+                    scale = containerWidth / pageWidth;
+                }
+                
+                viewport = page.getViewport({scale: scale});
+                
+                // Set canvas dimensions
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                // Render PDF page with better quality
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport,
+                    intent: 'display'
+                };
+                
+                await page.render(renderContext).promise;
+                
+                // Cache the rendered page
+                cachePage(num, canvas.toDataURL());
+                
+                pageRendering = false;
+                
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+                
+                // Update UI and save progress
+                updatePageDisplay();
+                updateProgress();
+                saveProgress();
+                checkAdDisplay();
+                
+                // Preload adjacent pages
+                preloadAdjacentPages();
+                
+            } catch (error) {
+                console.error('Error rendering page:', error);
+                pageRendering = false;
+            }
+        }
+        
+        /**
+         * Queue page rendering
+         * @param {number} num - Page number to queue
+         */
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+        
+        // ==================== Caching Functions ====================
+        /**
+         * Cache a rendered page
+         */
+        function cachePage(pageNum, dataUrl) {
+            // Manage cache size
+            if (pageCache.size >= CACHE_SIZE) {
+                const firstKey = pageCache.keys().next().value;
+                pageCache.delete(firstKey);
+            }
+            pageCache.set(pageNum, dataUrl);
+        }
+        
+        /**
+         * Display cached page
+         */
+        function displayCachedPage(pageNum) {
+            const canvas = document.getElementById('pdfCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = pageCache.get(pageNum);
+        }
+        
+        /**
+         * Preload adjacent pages
+         */
+        async function preloadAdjacentPages() {
+            if (!pdfDoc || isPreloading) return;
+            
+            isPreloading = true;
+            const pagesToPreload = [];
+            
+            // Add next 2 pages and previous page to preload queue
+            if (currentPageNum < totalPages) pagesToPreload.push(currentPageNum + 1);
+            if (currentPageNum < totalPages - 1) pagesToPreload.push(currentPageNum + 2);
+            if (currentPageNum > 1) pagesToPreload.push(currentPageNum - 1);
+            
+            for (const pageNum of pagesToPreload) {
+                if (!pageCache.has(pageNum)) {
+                    try {
+                        await preloadPage(pageNum);
+                    } catch (error) {
+                        console.error(`Failed to preload page ${pageNum}:`, error);
+                    }
+                }
+            }
+            
+            isPreloading = false;
+        }
+        
+        /**
+         * Preload a single page
+         */
+        async function preloadPage(pageNum) {
+            if (!pdfDoc || pageCache.has(pageNum)) return;
+            
+            const page = await pdfDoc.getPage(pageNum);
+            const offscreenCanvas = document.createElement('canvas');
+            const ctx = offscreenCanvas.getContext('2d');
+            
+            let viewport;
+            if (fitWidth) {
+                const containerWidth = document.getElementById('pdfContainer').clientWidth - 40;
+                const pageWidth = page.getViewport({scale: 1}).width;
+                const preloadScale = containerWidth / pageWidth;
+                viewport = page.getViewport({scale: preloadScale});
+            } else {
+                viewport = page.getViewport({scale: scale});
+            }
+            
+            offscreenCanvas.height = viewport.height;
+            offscreenCanvas.width = viewport.width;
+            
+            await page.render({
+                canvasContext: ctx,
+                viewport: viewport,
+                intent: 'display'
+            }).promise;
+            
+            cachePage(pageNum, offscreenCanvas.toDataURL());
+        }
+        
+        // ==================== Navigation Functions ====================
+        /**
+         * Navigate to next page with animation
+         */
+        function nextPage() {
+            if (currentPageNum < totalPages) {
+                transitionDirection = 'next';
+                if (pageTransitionEnabled) {
+                    animatePageTransition('left');
+                }
+                currentPageNum++;
+                queueRenderPage(currentPageNum);
+                pagesViewedSinceAd++;
+                pagesRead++;
+                
+                // Reset auto-scroll position when changing pages
+                if (autoScrollEnabled) {
+                    const container = document.getElementById('pdfContainer');
+                    container.scrollTop = 0;
+                }
+            }
+        }
+        
+        /**
+         * Navigate to previous page with animation
+         */
+        function prevPage() {
+            if (currentPageNum > 1) {
+                transitionDirection = 'prev';
+                if (pageTransitionEnabled) {
+                    animatePageTransition('right');
+                }
+                currentPageNum--;
+                queueRenderPage(currentPageNum);
+                
+                // Reset auto-scroll position when changing pages
+                if (autoScrollEnabled) {
+                    const container = document.getElementById('pdfContainer');
+                    container.scrollTop = 0;
+                }
+            }
+        }
+        
+        /**
+         * Animate page transition
+         */
+        function animatePageTransition(direction) {
+            const canvas = document.getElementById('pdfCanvas');
+            canvas.classList.add('fade-out');
+            
+            setTimeout(() => {
+                canvas.classList.remove('fade-out');
+                canvas.classList.add(`slide-${direction}`);
+                
+                setTimeout(() => {
+                    canvas.classList.remove(`slide-${direction}`);
+                }, 300);
+            }, 150);
+        }
+        
+        /**
+         * Update page display and button states
+         */
+        function updatePageDisplay() {
+            document.getElementById('currentPage').textContent = currentPageNum;
+            document.getElementById('prevBtn').disabled = currentPageNum <= 1;
+            document.getElementById('nextBtn').disabled = currentPageNum >= totalPages;
+        }
+        
+        /**
+         * Go back to previous page/website
+         */
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        }
+        
+        /**
+         * Refresh the reader
+         */
+        function refreshReader() {
+            if (pdfUrl) {
+                currentPageNum = 1;
+                loadPDF(pdfUrl);
+                pageCache.clear();
+                showToast('Reader refreshed');
+            }
+        }
+        
+        // ==================== Zoom Functions ====================
+        /**
+         * Zoom in the PDF - Smooth and responsive
+         */
+        function zoomIn() {
+            if (scale < 4) {
+                // Smooth zoom increments
+                const increment = scale < 1 ? 0.1 : scale < 2 ? 0.25 : 0.5;
+                scale = Math.min(4, scale + increment);
+                fitWidth = false;
+                
+                // Save current scroll position
+                const container = document.getElementById('pdfContainer');
+                const scrollRatio = container.scrollTop / container.scrollHeight;
+                
+                // Clear cache and re-render
+                pageCache.clear();
+                queueRenderPage(currentPageNum);
+                
+                // Restore scroll position after render
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight * scrollRatio;
+                }, 100);
+                
+                showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                updateZoomButtons();
+            }
+        }
+        
+        /**
+         * Zoom out the PDF - Smooth and responsive
+         */
+        function zoomOut() {
+            if (scale > 0.25) {
+                // Smooth zoom decrements
+                const decrement = scale <= 1 ? 0.1 : scale <= 2 ? 0.25 : 0.5;
+                scale = Math.max(0.25, scale - decrement);
+                fitWidth = false;
+                
+                // Save current scroll position
+                const container = document.getElementById('pdfContainer');
+                const scrollRatio = container.scrollTop / container.scrollHeight;
+                
+                // Clear cache and re-render
+                pageCache.clear();
+                queueRenderPage(currentPageNum);
+                
+                // Restore scroll position after render
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight * scrollRatio;
+                }, 100);
+                
+                showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                updateZoomButtons();
+            }
+        }
+        
+        /**
+         * Toggle fit to width mode
+         */
+        function toggleFitWidth() {
+            fitWidth = !fitWidth;
+            const btn = document.getElementById('fitWidthBtn');
+            
+            // Save current scroll position
+            const container = document.getElementById('pdfContainer');
+            const scrollRatio = container.scrollTop / container.scrollHeight;
+            
+            if (fitWidth) {
+                btn.classList.add('btn-primary');
+                showToast('Fit to Width');
+            } else {
+                btn.classList.remove('btn-primary');
+                showToast('Actual Size');
+            }
+            
+            pageCache.clear();
+            queueRenderPage(currentPageNum);
+            
+            // Restore scroll position
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight * scrollRatio;
+            }, 100);
+        }
+        
+        /**
+         * Update zoom button states
+         */
+        function updateZoomButtons() {
+            const zoomInBtn = document.querySelector('[onclick="zoomIn()"]');
+            const zoomOutBtn = document.querySelector('[onclick="zoomOut()"]');
+            
+            if (zoomInBtn) zoomInBtn.disabled = scale >= 4;
+            if (zoomOutBtn) zoomOutBtn.disabled = scale <= 0.25;
+        }
+        
+        // ==================== Theme & Settings Functions ====================
+        /**
+         * Toggle between light and dark theme
+         */
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('readerTheme', newTheme);
+            
+            showToast(newTheme === 'dark' ? 'Dark Mode' : 'Light Mode');
+        }
+        
+        /**
+         * Toggle settings dropdown
+         */
+        function toggleSettings() {
+            const settings = document.getElementById('settingsDropdown');
+            settings.classList.toggle('active');
+        }
+        
+        /**
+         * Change background color
+         * @param {string} color - Background color option
+         */
+        function changeBackground(color) {
+            const container = document.getElementById('pdfContainer');
+            const canvas = document.getElementById('pdfCanvas');
+            
+            switch(color) {
+                case 'white':
+                    container.style.backgroundColor = '#ffffff';
+                    canvas.style.background = '#ffffff';
+                    showToast('White Background');
+                    break;
+                case 'sepia':
+                    container.style.backgroundColor = '#f4ecd8';
+                    canvas.style.background = '#f4ecd8';
+                    showToast('Sepia Background');
+                    break;
+                case 'dark':
+                    container.style.backgroundColor = '#1a1a1a';
+                    canvas.style.background = '#1a1a1a';
+                    showToast('Dark Background');
+                    break;
+            }
+            
+            toggleSettings();
+        }
+        
+        /**
+         * Toggle fullscreen mode
+         */
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                showToast('Fullscreen Mode');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    showToast('Normal Mode');
+                }
+            }
+            toggleSettings();
+        }
+        
+        /**
+         * Download the current PDF
+         */
+        function downloadPDF() {
+            if (pdfUrl) {
+                const link = document.createElement('a');
+                link.href = pdfUrl;
+                link.download = document.getElementById('novelTitle').textContent + '.pdf';
+                link.click();
+                showToast('Download started');
+            }
+            toggleSettings();
+        }
+        
+        // ==================== Ad Functions ====================
+        /**
+         * Check if ad should be displayed after page navigation
+         */
+        function checkAdDisplay() {
+            if (pagesViewedSinceAd >= adInterval) {
+                showAdModal();
+                pagesViewedSinceAd = 0;
+            }
+        }
+        
+        /**
+         * Show ad modal with integrated ads
+         */
+        function showAdModal() {
+            const modal = document.getElementById('adModal');
+            
+            modal.classList.add('active');
+            
+            // Auto-close after 15 seconds (optional)
+            setTimeout(() => {
+                if (modal.classList.contains('active')) {
+                    closeAdModal();
+                }
+            }, 15000);
+        }
+        
+        /**
+         * Close ad modal
+         */
+        function closeAdModal() {
+            const modal = document.getElementById('adModal');
+            modal.classList.remove('active');
+        }
+        
+        /**
+         * Show exit confirmation modal with integrated ads
+         */
+        function showExitModal() {
+            const modal = document.getElementById('exitModal');
+            
+            modal.classList.add('active');
+        }
+        
+        /**
+         * Close exit modal
+         * Continue reading (close exit modal)
+         */
+        function continueReading() {
+            const modal = document.getElementById('exitModal');
+            
+            modal.classList.remove('active');
+        }
+        
+        /**
+         * Exit anyway
+         */
+        function exitAnyway() {
+            window.removeEventListener('beforeunload', null);
+            window.close();
+        }
+        
+        /**
+         * Close all modals
+         */
+        function closeAllModals() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.classList.remove('active');
+            });
+        }
+        
+        // ==================== UI Helper Functions ====================
+        /**
+         * Show/hide loading screen
+         * @param {boolean} show - Whether to show loading
+         */
+        function showLoading(show) {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (show) {
+                loadingScreen.style.display = 'flex';
+            } else {
+                loadingScreen.style.animation = 'fadeOut 0.5s ease';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        /**
+         * Show error message
+         * @param {string} message - Error message to display
+         */
+        function showError(message) {
+            const container = document.getElementById('pdfContainer');
+            container.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h2>${message}</h2>
+                    <button class="btn btn-primary" onclick="refreshReader()">
+                        <i class="fas fa-redo"></i> دوبارہ کوشش کریں
+                    </button>
+                </div>
+            `;
+        }
+        
+        /**
+         * Show toast notification
+         * @param {string} message - Message to display
+         */
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        /**
+         * Debounce function for resize events
+         * @param {Function} func - Function to debounce
+         * @param {number} wait - Wait time in milliseconds
+         */
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // ==================== Progress & Storage Functions ====================
+        /**
+         * Save reading progress to localStorage
+         */
+        function saveProgress() {
+            if (!pdfUrl) return;
+            
+            const progressData = {
+                url: pdfUrl,
+                currentPage: currentPageNum,
+                totalPages: totalPages,
+                timestamp: Date.now(),
+                scale: scale,
+                fitWidth: fitWidth
+            };
+            
+            localStorage.setItem('pdfReaderProgress_' + btoa(pdfUrl), JSON.stringify(progressData));
+        }
+        
+        /**
+         * Load saved progress from localStorage
+         */
+        function loadSavedProgress() {
+            // Clean old progress entries (older than 30 days)
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('pdfReaderProgress_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data.timestamp < thirtyDaysAgo) {
+                            localStorage.removeItem(key);
+                        }
+                    } catch (e) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Get saved page for a specific PDF
+         */
+        function getSavedPage(url) {
+            try {
+                const savedData = localStorage.getItem('pdfReaderProgress_' + btoa(url));
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    return data.currentPage;
+                }
+            } catch (e) {
+                console.error('Error loading saved progress:', e);
+            }
+            return null;
+        }
+        
+        /**
+         * Update reading progress bar and percentage
+         */
+        function updateProgress() {
+            const progressPercent = Math.round((currentPageNum / totalPages) * 100);
+            document.getElementById('progressBar').style.width = progressPercent + '%';
+            document.getElementById('progressPercent').textContent = progressPercent + '%';
+        }
+        
+        /**
+         * Calculate and update reading time
+         */
+        function updateReadingTime() {
+            if (!totalPages) return;
+            
+            const remainingPages = totalPages - currentPageNum + 1;
+            const estimatedMinutes = remainingPages * AVERAGE_READING_SPEED;
+            
+            let timeString;
+            if (estimatedMinutes < 60) {
+                timeString = `${Math.round(estimatedMinutes)} min`;
+            } else {
+                const hours = Math.floor(estimatedMinutes / 60);
+                const minutes = Math.round(estimatedMinutes % 60);
+                timeString = `${hours}h ${minutes}m`;
+            }
+            
+            document.getElementById('estimatedTime').textContent = timeString;
+        }
+        
+        // ==================== Social Share Functions ====================
+        /**
+         * Share on WhatsApp
+         */
+        function shareWhatsApp() {
+            const text = `Check out this PDF: ${document.getElementById('novelTitle').textContent}`;
+            const url = window.location.href;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+        }
+        
+        /**
+         * Share on Facebook
+         */
+        function shareFacebook() {
+            const url = window.location.href;
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        }
+        
+        /**
+         * Share on Twitter
+         */
+        function shareTwitter() {
+            const text = `Reading: ${document.getElementById('novelTitle').textContent}`;
+            const url = window.location.href;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+        }
+        
+        /**
+         * Share on LinkedIn
+         */
+        function shareLinkedIn() {
+            const url = window.location.href;
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+        }
+        
+        /**
+         * Copy link to clipboard
+         */
+        function copyLink() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('Link copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('Link copied!');
+            });
+        }
+        
+        // ==================== Focus Mode Functions ====================
+        /**
+         * Toggle Focus Mode - Hide all UI elements for distraction-free reading
+         */
+        function toggleFocusMode() {
+            const body = document.body;
+            if (body.classList.contains('focus-mode')) {
+                exitFocusMode();
+            } else {
+                enterFocusMode();
+            }
+        }
+        
+        /**
+         * Enter Focus Mode
+         */
+        function enterFocusMode() {
+            document.body.classList.add('focus-mode');
+            
+            // Close any open modals or dropdowns
+            document.getElementById('settingsDropdown').classList.remove('active');
+            closeAllModals();
+            
+            showToast('Focus Mode Enabled - Press ESC to exit');
+            
+            // Update reading area
+            setTimeout(() => {
+                const container = document.getElementById('pdfContainer');
+                container.style.paddingTop = '20px';
+                container.style.paddingBottom = '20px';
+            }, 500);
+        }
+        
+        /**
+         * Exit Focus Mode
+         */
+        function exitFocusMode() {
+            document.body.classList.remove('focus-mode');
+            
+            showToast('Focus Mode Disabled');
+            
+            // Restore reading area padding
+            const container = document.getElementById('pdfContainer');
+            container.style.paddingTop = '';
+            container.style.paddingBottom = '';
+        }
+        
+        /**
+         * Toggle mobile toolbars visibility
+         */
+        function toggleMobileToolbars() {
+            if (window.innerWidth > 768) return; // Only for mobile
+            
+            const topToolbar = document.querySelector('.top-toolbar');
+            const bottomToolbar = document.querySelector('.bottom-toolbar');
+            const pdfContainer = document.getElementById('pdfContainer');
+            
+            // Check current state
+            const isHidden = topToolbar.style.transform === 'translateY(-100%)';
+            
+            if (isHidden) {
+                // Show toolbars
+                topToolbar.style.transform = 'translateY(0)';
+                topToolbar.style.opacity = '0.95';
+                bottomToolbar.style.transform = 'translateY(0)';
+                bottomToolbar.style.opacity = '0.95';
+                
+                // Adjust container
+                if (window.innerWidth <= 480) {
+                    pdfContainer.style.top = '45px';
+                    pdfContainer.style.bottom = '45px';
+                } else {
+                    pdfContainer.style.top = '50px';
+                    pdfContainer.style.bottom = '50px';
+                }
+                
+                showToast('Toolbars Visible');
+            } else {
+                // Hide toolbars for maximum reading space
+                topToolbar.style.transform = 'translateY(-100%)';
+                topToolbar.style.opacity = '0';
+                bottomToolbar.style.transform = 'translateY(100%)';
+                bottomToolbar.style.opacity = '0';
+                
+                // Maximize container
+                pdfContainer.style.top = '0';
+                pdfContainer.style.bottom = '0';
+                
+                showToast('Toolbars Hidden - Swipe edge to show');
+            }
+        }
+        
+        /**
+         * Zoom to specific level
+         */
+        function zoomToLevel(level) {
+            scale = level;
+            fitWidth = false;
+            pageCache.clear();
+            queueRenderPage(currentPageNum);
+            showToast(`Zoom: ${Math.round(scale * 100)}%`);
+            updateZoomButtons();
+        }
+        
+        /**
+         * Quick zoom presets
+         */
+        function zoomPreset(preset) {
+            switch(preset) {
+                case 'fit':
+                    toggleFitWidth();
+                    break;
+                case '50':
+                    zoomToLevel(0.5);
+                    break;
+                case '75':
+                    zoomToLevel(0.75);
+                    break;
+                case '100':
+                    zoomToLevel(1);
+                    break;
+                case '125':
+                    zoomToLevel(1.25);
+                    break;
+                case '150':
+                    zoomToLevel(1.5);
+                    break;
+                case '200':
+                    zoomToLevel(2);
+                    break;
+            }
+        }
+        
+        // ==================== Auto Scroll Functions ====================
+        /**
+         * Toggle auto scroll mode
+         */
+        function toggleAutoScroll() {
+            autoScrollEnabled = !autoScrollEnabled;
+            const settings = document.getElementById('settingsDropdown');
+            settings.classList.remove('active');
+            
+            if (autoScrollEnabled) {
+                startAutoScroll();
+                showToast('Auto Scroll Enabled');
+                document.getElementById('autoScrollIndicator').classList.add('active');
+            } else {
+                stopAutoScroll();
+                showToast('Auto Scroll Disabled');
+                document.getElementById('autoScrollIndicator').classList.remove('active');
+            }
+        }
+        
+        /**
+         * Start auto scrolling
+         */
+        function startAutoScroll() {
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+            }
+            
+            const container = document.getElementById('pdfContainer');
+            
+            autoScrollInterval = setInterval(() => {
+                if (!autoScrollEnabled) {
+                    stopAutoScroll();
+                    return;
+                }
+                
+                const scrollStep = autoScrollSpeed / 60; // Convert to pixels per frame
+                container.scrollTop += scrollStep;
+                
+                // Check if we've reached the bottom of the page
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
+                    // Auto advance to next page
+                    if (currentPageNum < totalPages) {
+                        nextPage();
+                        // Scroll to top of new page
+                        setTimeout(() => {
+                            container.scrollTop = 0;
+                        }, 500);
+                    } else {
+                        // Reached end of document
+                        stopAutoScroll();
+                        showToast('End of Document');
+                    }
+                }
+            }, 1000 / 60); // 60 FPS
+        }
+        
+        /**
+         * Stop auto scrolling
+         */
+        function stopAutoScroll() {
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
+            }
+            autoScrollEnabled = false;
+            document.getElementById('autoScrollIndicator').classList.remove('active');
+        }
+        
+        /**
+         * Set auto scroll speed
+         */
+        function setAutoScrollSpeed(speed) {
+            autoScrollSpeed = speed;
+            if (autoScrollEnabled) {
+                stopAutoScroll();
+                startAutoScroll();
+            }
+        }
+        
+        /**
+         * Toggle page transition animations
+         */
+        function togglePageTransition() {
+            pageTransitionEnabled = !pageTransitionEnabled;
+            const settings = document.getElementById('settingsDropdown');
+            settings.classList.remove('active');
+            
+            if (pageTransitionEnabled) {
+                showToast('Page Animations Enabled');
+                localStorage.setItem('pageTransitionsEnabled', 'true');
+            } else {
+                showToast('Page Animations Disabled');
+                localStorage.setItem('pageTransitionsEnabled', 'false');
+            }
+        }
+        
+        /**
+         * Load animation preferences
+         */
+        function loadAnimationPreferences() {
+            const savedTransition = localStorage.getItem('pageTransitionsEnabled');
+            if (savedTransition === 'false') {
+                pageTransitionEnabled = false;
+            }
+        }
+        
+        /**
+         * Adjust scroll speed with keyboard
+         */
+        function adjustScrollSpeed(increase) {
+            if (increase) {
+                autoScrollSpeed = Math.min(100, autoScrollSpeed + 10);
+            } else {
+                autoScrollSpeed = Math.max(10, autoScrollSpeed - 10);
+            }
+            
+            if (autoScrollEnabled) {
+                setAutoScrollSpeed(autoScrollSpeed);
+                showToast(`Scroll Speed: ${autoScrollSpeed}px/s`);
+            }
+        }
+        
+    </script>
+</body>
+</html>
