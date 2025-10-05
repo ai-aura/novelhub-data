@@ -270,6 +270,17 @@
             to { opacity: 1; }
         }
         
+        @keyframes pdfFadeIn {
+            from { 
+                opacity: 0;
+                transform: scale(0.98);
+            }
+            to { 
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
         @keyframes fadeOut {
             from { opacity: 1; }
             to { opacity: 0; }
@@ -297,6 +308,23 @@
             }
         }
         
+        @keyframes slideDownGlass {
+            0% {
+                transform: translateY(-100%);
+                opacity: 0;
+                backdrop-filter: blur(0px);
+            }
+            50% {
+                opacity: 0.5;
+                backdrop-filter: blur(5px);
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+                backdrop-filter: blur(10px);
+            }
+        }
+        
         /* Glass Morphism Components */
         .glass {
             background: var(--glass-bg);
@@ -319,11 +347,17 @@
             justify-content: space-between;
             padding: 0 20px;
             z-index: 1000;
-            animation: slideDown 0.5s ease;
-            transition: all 0.3s ease;
+            /* Glassmorphic styling as requested */
+            background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            opacity: 0.95;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-top: none; /* Remove top border since it's at the edge */
+            border-radius: 0 0 16px 16px; /* Rounded bottom corners only */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+            /* Smooth appearance animation */
+            animation: slideDownGlass 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             /* Ensure visibility on mobile */
             transform: translateZ(0);
             will-change: transform;
@@ -342,6 +376,54 @@
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 200px;
+        }
+        
+        /* Back Button Styling */
+        .back-btn {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .back-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Toolbar Actions Container */
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Improve h2 styling in toolbar */
+        .top-toolbar h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+            flex: 1;
+            text-align: center;
         }
         
         /* Bottom Toolbar */
@@ -427,16 +509,21 @@
             bottom: var(--toolbar-height);
             left: 0;
             right: 0;
+            /* Perfect centering with flexbox */
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             padding: 20px;
             overflow-y: auto;
             overflow-x: auto;
             width: 100%;
             height: calc(100vh - calc(var(--toolbar-height) * 2));
+            /* Enhanced mobile scrolling */
             -webkit-overflow-scrolling: touch;
-            touch-action: pan-y pinch-zoom;
+            touch-action: pan-x pan-y pinch-zoom;
+            /* Ensure proper stacking */
+            transform: translateZ(0);
+            will-change: transform;
         }
         
         #pdfCanvas {
@@ -447,7 +534,20 @@
             background: white;
             display: block;
             margin: 0 auto;
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            /* Smooth zoom transitions */
+            transform-origin: center center;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out;
+            /* Prevent user select during gestures */
+            user-select: none;
+            -webkit-user-select: none;
+            /* Initial fade-in state */
+            opacity: 0;
+        }
+        
+        #pdfCanvas.loaded {
+            /* Gentle fade-in animation when PDF appears */
+            opacity: 1;
+            animation: pdfFadeIn 0.5s ease-out;
         }
         
         #pdfCanvas.fade-out {
@@ -742,11 +842,19 @@
                 bottom: 50px;
                 left: 0;
                 right: 0;
+                /* Perfect mobile centering */
+                display: flex;
+                justify-content: center;
+                align-items: center;
                 height: calc(100vh - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
                 padding: 10px;
                 overflow-y: auto;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
+                /* Enhanced touch support */
+                touch-action: pan-x pan-y pinch-zoom;
+                transform: translateZ(0);
+                will-change: transform;
             }
             
             /* Toolbar optimization */
@@ -799,6 +907,22 @@
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+            }
+            
+            /* Mobile styles for new toolbar */
+            .back-btn {
+                font-size: 12px;
+                padding: 6px 10px;
+                border-radius: 8px;
+            }
+            
+            .top-toolbar h2 {
+                font-size: 14px;
+                max-width: 150px;
+            }
+            
+            .toolbar-actions {
+                gap: 5px;
             }
             
             /* Page info compact */
@@ -855,8 +979,15 @@
                 bottom: 45px;
                 left: 0;
                 right: 0;
+                /* Perfect centering for ultra-small screens */
+                display: flex;
+                justify-content: center;
+                align-items: center;
                 height: calc(100vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
                 padding: 5px;
+                /* Enhanced touch for small screens */
+                touch-action: pan-x pan-y pinch-zoom;
+                transform: translateZ(0);
             }
             
             .top-toolbar {
@@ -891,6 +1022,22 @@
             .novel-title {
                 font-size: 12px;
                 max-width: 100px;
+            }
+            
+            /* Ultra-small screen styles for new toolbar */
+            .back-btn {
+                font-size: 11px;
+                padding: 4px 8px;
+                border-radius: 6px;
+            }
+            
+            .top-toolbar h2 {
+                font-size: 12px;
+                max-width: 120px;
+            }
+            
+            .toolbar-actions {
+                gap: 3px;
             }
             
             .page-info {
@@ -960,18 +1107,10 @@
     </div>
     
     <!-- Top Toolbar -->
-    <div class="top-toolbar glass">
-        <div class="toolbar-section">
-            <button class="btn btn-icon" onclick="goBack()" title="Go Back">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <button class="btn btn-icon" onclick="refreshReader()" title="Refresh">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-            <div class="novel-title" id="novelTitle">PDF Document</div>
-        </div>
-        
-        <div class="toolbar-section">
+    <div class="top-toolbar">
+        <button class="back-btn" onclick="window.location.href='test.html'">🔙 Back to Library</button>
+        <h2 id="novelTitle">PDF Document</h2>
+        <div class="toolbar-actions">
             <div class="theme-switch" onclick="toggleTheme()" title="Toggle Theme"></div>
             <button class="btn btn-icon" onclick="toggleSettings()" title="Settings">
                 <i class="fas fa-cog"></i>
@@ -1192,7 +1331,35 @@
             
             // Setup event listeners
             setupEventListeners();
+            
+            // Set proper container dimensions
+            setTimeout(() => updateContainerDimensions(), 100);
         });
+        
+        /**
+         * Calculate and set proper PDF container dimensions
+         */
+        function updateContainerDimensions() {
+            const topToolbar = document.querySelector('.top-toolbar');
+            const bottomToolbar = document.querySelector('.bottom-toolbar');
+            const pdfContainer = document.getElementById('pdfContainer');
+            
+            if (!pdfContainer) return;
+            
+            // Get actual toolbar heights dynamically
+            const topHeight = topToolbar ? topToolbar.offsetHeight : 0;
+            const bottomHeight = bottomToolbar ? bottomToolbar.offsetHeight : 0;
+            
+            // Update container positioning
+            pdfContainer.style.top = `${topHeight}px`;
+            pdfContainer.style.bottom = `${bottomHeight}px`;
+            pdfContainer.style.height = `calc(100vh - ${topHeight + bottomHeight}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`;
+            
+            // Re-render current page if needed for fit-width mode
+            if (pdfDoc && fitWidth) {
+                renderPage(currentPageNum);
+            }
+        }
         
         /**
          * Setup all event listeners
@@ -1200,10 +1367,21 @@
         function setupEventListeners() {
             // Window resize handler
             window.addEventListener('resize', debounce(function() {
+                updateContainerDimensions();
                 if (pdfDoc && fitWidth) {
                     renderPage(currentPageNum);
                 }
             }, 300));
+            
+            // Orientation change handler for mobile
+            window.addEventListener('orientationchange', function() {
+                setTimeout(() => {
+                    updateContainerDimensions();
+                    if (pdfDoc) {
+                        renderPage(currentPageNum);
+                    }
+                }, 200);
+            });
             
             // Keyboard navigation
             document.addEventListener('keydown', function(e) {
@@ -1366,12 +1544,57 @@
                 lastTap = currentTime;
             });
             
-            // Pinch zoom support
+            // Enhanced pinch zoom and pan support
             let initialPinchDistance = null;
             let currentScale = scale;
+            let gestureStartTime = 0;
+            let isGesturing = false;
+            let lastGestureScale = 1;
             
+            // Modern gesture event handlers for iOS Safari
+            pdfContainer.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+                isGesturing = true;
+                gestureStartTime = Date.now();
+                currentScale = scale;
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transition = 'none'; // Disable transitions during gesture
+            });
+            
+            pdfContainer.addEventListener('gesturechange', function(e) {
+                e.preventDefault();
+                if (!isGesturing) return;
+                
+                const newScale = Math.min(4, Math.max(0.25, currentScale * e.scale));
+                scale = newScale;
+                lastGestureScale = e.scale;
+                fitWidth = false;
+                
+                // Apply transform directly for smooth feedback
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transform = `scale(${scale})`;
+            });
+            
+            pdfContainer.addEventListener('gestureend', function(e) {
+                e.preventDefault();
+                isGesturing = false;
+                
+                const canvas = document.getElementById('pdfCanvas');
+                // Re-enable smooth transitions
+                canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                
+                // Trigger re-render with new scale
+                setTimeout(() => {
+                    canvas.style.transform = ''; // Reset transform, let renderPage handle it
+                    queueRenderPage(currentPageNum);
+                    updateZoomButtons();
+                    showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                }, 50);
+            });
+            
+            // Fallback pinch zoom for Android and other devices
             pdfContainer.addEventListener('touchmove', function(e) {
-                if (e.touches.length === 2) {
+                if (e.touches.length === 2 && !isGesturing) {
                     e.preventDefault();
                     
                     const touch1 = e.touches[0];
@@ -1384,22 +1607,36 @@
                     if (!initialPinchDistance) {
                         initialPinchDistance = distance;
                         currentScale = scale;
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transition = 'none';
                     } else {
                         const pinchScale = distance / initialPinchDistance;
-                        scale = Math.min(4, Math.max(0.25, currentScale * pinchScale));
+                        const newScale = Math.min(4, Math.max(0.25, currentScale * pinchScale));
+                        scale = newScale;
                         fitWidth = false;
-                        queueRenderPage(currentPageNum);
+                        
+                        // Apply smooth transform during pinch
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transform = `scale(${scale})`;
                     }
                 }
             }, {passive: false});
             
             pdfContainer.addEventListener('touchend', function(e) {
-                if (e.touches.length < 2) {
+                if (e.touches.length < 2 && initialPinchDistance) {
                     initialPinchDistance = null;
-                    if (scale !== currentScale) {
+                    
+                    const canvas = document.getElementById('pdfCanvas');
+                    // Re-enable transitions
+                    canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                    
+                    // Trigger re-render with new scale
+                    setTimeout(() => {
+                        canvas.style.transform = ''; // Reset transform
+                        queueRenderPage(currentPageNum);
                         updateZoomButtons();
                         showToast(`Zoom: ${Math.round(scale * 100)}%`);
-                    }
+                    }, 50);
                 }
             });
             
@@ -1441,6 +1678,32 @@
         
         // ==================== PDF Loading Functions ====================
         /**
+         * Clean and beautify PDF title from filename
+         * @param {string} filename - Raw filename from URL
+         * @returns {string} - Cleaned and beautified title
+         */
+        function cleanPDFTitle(filename) {
+            // Decode URL encoded characters (e.g., %20 becomes space)
+            let title = decodeURIComponent(filename);
+            
+            // Remove the .pdf extension (case insensitive)
+            title = title.replace(/\.pdf$/i, '');
+            
+            // Replace underscores and hyphens with spaces
+            title = title.replace(/[_-]/g, ' ');
+            
+            // Remove extra spaces and trim
+            title = title.replace(/\s+/g, ' ').trim();
+            
+            // Capitalize each word (Title Case)
+            title = title.replace(/\w\S*/g, (txt) => 
+                txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+            );
+            
+            return title || 'PDF Document'; // Fallback if title is empty
+        }
+
+        /**
          * Load PDF from URL with progressive loading
          * @param {string} url - PDF URL to load
          */
@@ -1449,11 +1712,14 @@
             showLoading(true);
             startReadingTime = Date.now();
             
-            // Extract document name from URL
+            // Extract and clean document name from URL
             const urlParts = url.split('/');
             const fileName = urlParts[urlParts.length - 1];
-            const docName = fileName.replace('.pdf', '').replace(/-/g, ' ');
-            document.getElementById('novelTitle').textContent = docName;
+            const cleanedTitle = cleanPDFTitle(fileName);
+            
+            // Update both on-page title and browser tab title
+            document.getElementById('novelTitle').textContent = cleanedTitle;
+            document.title = cleanedTitle + ' - Online PDF Reader';
             
             // Load the PDF with progressive rendering
             const loadingTask = pdfjsLib.getDocument({
@@ -1546,6 +1812,9 @@
                 
                 await page.render(renderContext).promise;
                 
+                // Add fade-in animation class
+                canvas.classList.add('loaded');
+                
                 // Cache the rendered page
                 cachePage(num, canvas.toDataURL());
                 
@@ -1607,6 +1876,8 @@
                 canvas.width = img.width;
                 canvas.height = img.height;
                 ctx.drawImage(img, 0, 0);
+                // Add fade-in animation for cached pages too
+                canvas.classList.add('loaded');
             };
             img.src = pageCache.get(pageNum);
         }
