@@ -291,10 +291,13 @@
     function openReader(){
       const input=document.getElementById("pdfLink").value.trim();
       if(!input) return alert("⚠️ Please enter a valid PDF link or name!");
-      const found=allNovels.find(n=>n.title.toLowerCase().includes(input.toLowerCase()));
-      const url=found?found.pdfUrl:input;
-      const title=found?found.title:"Custom Link";
-      saveLastOpened(title,url);
+      
+      const found = allNovels.find(n => n.title.toLowerCase().includes(input.toLowerCase()));
+      const url = found ? found.pdfUrl : input;
+// 🧠 Extract readable title from the link
+      let title = found ? found.title : decodeURIComponent(url.split("/").pop().replace(".pdf","").replace(/_/g," "));
+      
+      saveLastOpened(title, url);
       window.open(`reader.html?file=${encodeURIComponent(url)}`,"_blank");
     }
 
@@ -321,3 +324,4 @@
   </script>
 </body>
 </html>
+
