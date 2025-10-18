@@ -2080,6 +2080,36 @@
                 fitWidth = true; // Always fit width for better mobile experience
                 initializeVerticalScroll();
                 
+                // CHANGED: ensure first visible page renders immediately (fix stall)
+                setTimeout(() => {
+                    if (typeof totalPages === 'number' && totalPages > 0) {
+                        // CHANGED: render first visible page immediately
+                        (async () => {
+                            try {
+                                await renderPageVertical(currentPageNum || 1);
+                            } catch (e) {
+                                console.error('CHANGED: forced first render failed', e);
+                            }
+                            // CHANGED: hide loader after attempting render
+                            try { showLoading(false); } catch(e){/* graceful */} 
+                        })();
+                    } else {
+                        console.error('CHANGED: PDF loaded but totalPages is', totalPages);
+                        try { showError('Unable to parse document (empty or invalid PDF).'); } catch(e){/* graceful */}
+                        try { showLoading(false); } catch(e){/* graceful */}
+                    }
+                }, 80);
+                
+                // CHANGED: watchdog to unstick loader if first render doesn't happen
+                const _ch_watchdog = setTimeout(() => {
+                    if (!window.renderedPages || (window.renderedPages && window.renderedPages.size === 0)) {
+                        console.warn('CHANGED: Watchdog: no pages rendered yet — forcing UI to continue.');
+                        try { showLoading(false); } catch(e){/* graceful */}
+                        try { showToast && showToast('Rendering delayed — content should appear momentarily.'); } catch(e){/* graceful */}
+                    }
+                }, 5000);
+                window._ch_watchdog = _ch_watchdog; // Store globally for cleanup
+                
                 // CHANGED: Render first visible page immediately for sub-800ms load
                 const firstPageToRender = currentPageNum || 1;
                 requestAnimationFrame(() => {
@@ -2090,6 +2120,11 @@
                         }
                         // Priority render with immediate display
                         renderPageVertical(firstPageToRender, true).then(() => {
+                            // CHANGED: Clear watchdog after successful render
+                            if (window._ch_watchdog) {
+                                clearTimeout(window._ch_watchdog);
+                                window._ch_watchdog = null;
+                            }
                             // Preload adjacent pages in background
                             requestIdleCallback(() => {
                                 preloadAdjacentPagesOptimized(firstPageToRender);
@@ -2274,6 +2309,12 @@
                 // Mark as rendered
                 renderedPages.add(num);
                 
+                // CHANGED: Clear watchdog after successful render
+                if (window._ch_watchdog && renderedPages.size === 1) {
+                    clearTimeout(window._ch_watchdog);
+                    window._ch_watchdog = null;
+                }
+                
                 // CHANGED: Smart caching with size limit
                 if (visiblePages.has(num) || Math.abs(num - currentPageNum) <= 2) {
                     cachePage(num, canvas.toDataURL('image/jpeg', 0.7));
@@ -2288,9 +2329,21 @@
          * Render a specific page with caching (compatibility wrapper)
          * @param {number} num - Page number to render
          */
-        async function renderPage(num) {
-            // CHANGED: Scroll to page in vertical mode
-            const pageElement = document.getElementById(`page-${num}`);
+        // CHANGED: compatibility wrapper — call vertical renderer when vertical mode active
+        async function renderPage(pageNum) {
+            try {
+                if (window.readerMode === 'continuous' || document.getElementById('pdfContainer')) {
+                    return await renderPageVertical(pageNum);
+                }
+            } catch (e) {
+                console.warn('CHANGED: renderPage wrapper fallback triggered', e);
+            }
+            // fallback to existing single-canvas renderer if present (preserve original logic)
+            if (typeof renderPageSingle === 'function') {
+                return renderPageSingle(pageNum);
+            }
+            // else scroll to page as fallback
+            const pageElement = document.getElementById(`page-${pageNum}`);
             if (pageElement) {
                 pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
