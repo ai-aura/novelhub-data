@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📚 Novel World ✨ - Online Library</title>
+
+  <style>
+    /* 🌈 Vibrant Gradient Background */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      font-family: "Poppins", sans-serif;
+      color: white;
+      background: linear-gradient(135deg, #ff7eb3, #ff758c, #42a5f5, #7b1fa2, #00c9ff);
+      background-size: 400% 400%;
+      animation: gradientMove 12s ease infinite;
+      overflow-x: hidden;
+      padding: 25px 0;
+    }
+
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* ✨ Floating Animated Logo */
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 25px;
+      padding: 12px 28px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      animation: float 3s ease-in-out infinite;
+      background-image: linear-gradient(90deg, #fff, #a6ffcb, #12d8fa, #1fa2ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 10px rgba(255,255,255,0.4);
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0); }
+    }
+
+    /* 💎 Glass Container (higher transparency, lower blur) */
+    .container {
+      width: 90%;
+      max-width: 600px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(5px);
+      border-radius: 25px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+      padding: 25px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      animation: fadeInUp 0.8s ease-out;
+      transition: 0.4s;
+    }
+
+    .container:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(1.02);
+    }
+
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #fff, #00c6ff, #0072ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      font-size: 0.9rem;
+      color: #e8f4ff;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      outline: none;
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+      font-size: 0.95rem;
+      text-align: center;
+      margin-bottom: 12px;
+      transition: 0.3s;
+    }
+
+    input:focus {
+      background: rgba(255, 255, 255, 0.28);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 5px;
+      padding: 12px;
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 25px rgba(0,114,255,0.4);
+    }
+
+    /* 📚 Novel List */
+    .novel-list {
+      margin-top: 25px;
+      text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.3) transparent;
+    }
+
+    .novel-item {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    @keyframes fadeUp {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .cover {
+      width: 45px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+      margin-right: 12px;
+      background: rgba(255,255,255,0.15);
+    }
+
+    .novel-title {
+      flex: 1;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: 0.3s;
+    }
+
+    .novel-title:hover {
+      color: #a4e6ff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
+
+    .last-opened {
+      background: rgba(255,255,255,0.15);
+      border-left: 4px solid #fff;
+      margin-bottom: 15px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      text-align: left;
+      box-shadow: 0 4px 15px rgba(255,255,255,0.15);
+    }
+
+    /* 🌀 Loader */
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 40px;
+    }
+
+    .loader {
+      width: 55px;
+      height: 55px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {transform: rotate(0deg);}
+      100% {transform: rotate(360deg);}
+    }
+
+    .loader-text {
+      margin-top: 10px;
+      color: #fff;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      opacity: 0.85;
+    }
+
+    @media (max-width:600px) {
+      .container { width: 94%; padding: 20px 15px; }
+      .logo { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">Novel World ✨</div>
+
+  <div class="container">
+    <h1>📖 Launch Your Online Reader</h1>
+    <p>Paste a PDF link or search novels below:</p>
+
+    <input id="pdfLink" type="text" placeholder="Paste PDF link or type novel name..." onkeyup="searchNovels()" />
+    <button onclick="openReader()">Open in Reader</button>
+
+    <div id="lastOpened" class="last-opened" style="display:none;"></div>
+
+    <div class="novel-list" id="pdfList">
+      <div class="loader-container">
+        <div class="loader"></div>
+        <div class="loader-text">Loading novels...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const username = "ai-aura";  // ✅ Your GitHub username
+    const repo = "novelhub-data";        // ✅ Your repository name
+    const folder = "novels";
+    const coverFolder = "covers";
+    let allNovels = [];
+
+    async function loadPDFs() {
+      const listDiv = document.getElementById("pdfList");
+      try {
+        const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${folder}`;
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        const pdfs = data.filter(i => i.name.endsWith(".pdf"));
+        allNovels = pdfs.map((pdf, idx) => ({
+          title: pdf.name.replace(/_/g," ").replace(".pdf",""),
+          pdfUrl: `https://${username}.github.io/${repo}/${folder}/${pdf.name}`,
+          coverUrl: `https://${username}.github.io/${repo}/${coverFolder}/${pdf.name.replace(".pdf",".jpg")}`
+        }));
+        renderNovels(allNovels);
+        showLastOpened();
+      } catch {
+        listDiv.innerHTML = "<p>⚠️ Error loading novels.</p>";
+      }
+    }
+
+    function renderNovels(list){
+      const listDiv = document.getElementById("pdfList");
+      listDiv.innerHTML = list.map((novel,i)=>`
+        <div class="novel-item" style="animation-delay:${i*0.06}s">
+          <img src="${novel.coverUrl}" class="cover" onerror="this.src='https://via.placeholder.com/60x80?text=No+Cover'">
+          <a href="#" class="novel-title" onclick="openReaderLink('${novel.pdfUrl}','${novel.title}')">${novel.title}</a>
+        </div>`).join("");
+    }
+
+    function searchNovels(){
+      const query=document.getElementById("pdfLink").value.toLowerCase();
+      const filtered=allNovels.filter(n=>n.title.toLowerCase().includes(query));
+      renderNovels(filtered);
+    }
+
+    function openReader(){
+      const input=document.getElementById("pdfLink").value.trim();
+      if(!input) return alert("⚠️ Please enter a valid PDF link or name!");
+      
+      const found = allNovels.find(n => n.title.toLowerCase().includes(input.toLowerCase()));
+      const url = found ? found.pdfUrl : input;
+// 🧠 Extract readable title from the link
+      let title = found ? found.title : decodeURIComponent(url.split("/").pop().replace(".pdf","").replace(/_/g," "));
+      
+      saveLastOpened(title, url);
+      window.open(`reader.html?file=${encodeURIComponent(url)}`,"_blank");
+    }
+
+    function openReaderLink(link,title){
+      saveLastOpened(title,link);
+      window.open(`reader.html?file=${encodeURIComponent(link)}`,"_blank");
+    }
+
+    function saveLastOpened(title,url){
+      localStorage.setItem("lastNovel",JSON.stringify({title,url,time:new Date().toLocaleString()}));
+      showLastOpened();
+    }
+
+    function showLastOpened(){
+      const data=localStorage.getItem("lastNovel");
+      if(!data) return;
+      const {title,url,time}=JSON.parse(data);
+      const div=document.getElementById("lastOpened");
+      div.innerHTML=`<strong>🕮 Last Opened:</strong><br><a href="#" onclick="openReaderLink('${url}','${title}')">${title}</a><br><small>📅 ${time}</small>`;
+      div.style.display="block";
+    }
+
+    loadPDFs();
+  </script>
+</body>
+</html>
+
+
