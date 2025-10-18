@@ -502,46 +502,82 @@
             text-align: center;
         }
         
-        /* PDF Viewer Container */
+        /* PDF Viewer Container - CHANGED: vertical scroll mode */
         #pdfContainer {
             position: fixed;
             top: var(--toolbar-height);
             bottom: var(--toolbar-height);
             left: 0;
             right: 0;
-            /* Perfect centering with flexbox */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            /* CHANGED: vertical scroll layout */
+            display: block;
+            padding: 20px 0;
             overflow-y: auto;
-            overflow-x: auto;
+            overflow-x: hidden;
             width: 100%;
             height: calc(100vh - calc(var(--toolbar-height) * 2));
             /* Enhanced mobile scrolling */
             -webkit-overflow-scrolling: touch;
-            touch-action: pan-x pan-y pinch-zoom;
+            scroll-behavior: smooth;
+            touch-action: pan-y pinch-zoom;
             /* Ensure proper stacking */
             transform: translateZ(0);
             will-change: transform;
         }
         
-        #pdfCanvas {
+        /* CHANGED: Multiple canvas support for vertical scroll */
+        .pdf-page {
+            position: relative;
+            margin: 0 auto 20px;
+            max-width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+        
+        .pdf-page canvas {
             max-width: 100%;
             height: auto;
             border-radius: 10px;
             box-shadow: var(--shadow-hard);
             background: white;
             display: block;
-            margin: 0 auto;
             /* Smooth zoom transitions */
             transform-origin: center center;
-            transition: opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out;
+            transition: opacity 0.3s ease-out;
             /* Prevent user select during gestures */
             user-select: none;
             -webkit-user-select: none;
-            /* Initial fade-in state */
-            opacity: 0;
+        }
+        
+        .pdf-page.loading {
+            background: var(--glass-bg);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pdf-page.loading::after {
+            content: 'Loading...';
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        /* CHANGED: Ad container styling */
+        .ad-container {
+            margin: 30px auto;
+            padding: 20px;
+            max-width: 90%;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow-hard);
+            text-align: center;
+        }
+        
+        #pdfCanvas {
+            display: none; /* Hide old single canvas */
         }
         
         #pdfCanvas.loaded {
@@ -835,24 +871,22 @@
                 --toolbar-height: 50px;
             }
             
-            /* Optimize PDF container for mobile */
+            /* CHANGED: Mobile optimized vertical scroll */
             #pdfContainer {
                 position: fixed;
                 top: 50px;
                 bottom: 50px;
                 left: 0;
                 right: 0;
-                /* Perfect mobile centering */
-                display: flex;
-                justify-content: center;
-                align-items: center;
+                /* CHANGED: vertical scroll for mobile */
+                display: block;
                 height: calc(100vh - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-                padding: 10px;
+                padding: 10px 5px;
                 overflow-y: auto;
-                overflow-x: auto;
+                overflow-x: hidden;
                 -webkit-overflow-scrolling: touch;
                 /* Enhanced touch support */
-                touch-action: pan-x pan-y pinch-zoom;
+                touch-action: pan-y pinch-zoom;
                 transform: translateZ(0);
                 will-change: transform;
             }
@@ -979,14 +1013,14 @@
                 bottom: 45px;
                 left: 0;
                 right: 0;
-                /* Perfect centering for ultra-small screens */
-                display: flex;
-                justify-content: center;
-                align-items: center;
+                /* CHANGED: vertical scroll for small screens */
+                display: block;
                 height: calc(100vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-                padding: 5px;
+                padding: 5px 3px;
+                overflow-y: auto;
+                overflow-x: hidden;
                 /* Enhanced touch for small screens */
-                touch-action: pan-x pan-y pinch-zoom;
+                touch-action: pan-y pinch-zoom;
                 transform: translateZ(0);
             }
             
@@ -1154,9 +1188,10 @@
         </div>
     </div>
     
-    <!-- PDF Container -->
+    <!-- PDF Container - CHANGED: container for multiple pages -->
     <div id="pdfContainer">
-        <canvas id="pdfCanvas"></canvas>
+        <!-- Pages will be dynamically inserted here -->
+        <canvas id="pdfCanvas" style="display: none;"></canvas>
     </div>
     
     <!-- Bottom Toolbar -->
@@ -1266,8 +1301,16 @@
         let scale = 1.5;
         let fitWidth = false;
         let pdfUrl = '';
-        let adInterval = 20; // Show ad after every 20 pages
+        let adInterval = 10; // CHANGED: Show ad after every 10 pages
         let pagesViewedSinceAd = 0;
+        
+        // CHANGED: Vertical scroll mode variables
+        let pageElements = [];
+        let renderedPages = new Set();
+        let visiblePages = new Set();
+        let intersectionObserver = null;
+        let lastScrollPosition = 0;
+        let pagesScrolledCount = 0;
         
         // Page cache system
         const pageCache = new Map();
@@ -1318,10 +1361,11 @@
                 showError('Sorry, this document is currently unavailable.');
             }
             
-            // Set default fit width for mobile
+            // CHANGED: Always fit width for better responsive experience
+            fitWidth = true;
+            
+            // Ensure toolbars are visible on mobile
             if (window.innerWidth < 768) {
-                fitWidth = true;
-                // Ensure bottom toolbar is visible
                 const bottomToolbar = document.querySelector('.bottom-toolbar');
                 if (bottomToolbar) {
                     bottomToolbar.style.display = 'flex';
@@ -1383,7 +1427,7 @@
                 }, 200);
             });
             
-            // Keyboard navigation
+            // Keyboard navigation - CHANGED: Updated for vertical scroll
             document.addEventListener('keydown', function(e) {
                 // Don't handle shortcuts in focus mode for Escape
                 if (document.body.classList.contains('focus-mode') && e.key === 'Escape') {
@@ -1410,11 +1454,35 @@
                 }
                 
                 switch(e.key) {
-                    case 'ArrowLeft':
+                    case 'ArrowUp':
+                        e.preventDefault();
                         prevPage();
                         break;
-                    case 'ArrowRight':
+                    case 'ArrowDown':
+                        e.preventDefault();
                         nextPage();
+                        break;
+                    case 'PageUp':
+                        e.preventDefault();
+                        prevPage();
+                        break;
+                    case 'PageDown':
+                        e.preventDefault();
+                        nextPage();
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        if (e.ctrlKey) {
+                            currentPageNum = 1;
+                            renderPage(1);
+                        }
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        if (e.ctrlKey) {
+                            currentPageNum = totalPages;
+                            renderPage(totalPages);
+                        }
                         break;
                     case '+':
                     case '=':
@@ -1471,10 +1539,25 @@
                 }
             });
             
-            // Mobile gesture support
+            // Setup mobile gestures
             setupMobileGestures();
+            
+            // CHANGED: Add scroll event listener for tracking pages
+            const pdfContainer = document.getElementById('pdfContainer');
+            let scrollTimer = null;
+            pdfContainer.addEventListener('scroll', function() {
+                // Clear previous timer
+                if (scrollTimer) {
+                    clearTimeout(scrollTimer);
+                }
+                
+                // Set a new timer to update page after scrolling stops
+                scrollTimer = setTimeout(() => {
+                    updateCurrentPageFromScroll();
+                }, 150);
+            }, { passive: true });
         }
-        
+
         /**
          * Setup mobile gesture controls
          */
@@ -1489,46 +1572,8 @@
             
             const pdfContainer = document.getElementById('pdfContainer');
             
-            // Touch start
-            pdfContainer.addEventListener('touchstart', function(e) {
-                touchStartX = e.changedTouches[0].screenX;
-                touchStartY = e.changedTouches[0].screenY;
-            }, {passive: true});
-            
-            // Touch end
-            pdfContainer.addEventListener('touchend', function(e) {
-                touchEndX = e.changedTouches[0].screenX;
-                touchEndY = e.changedTouches[0].screenY;
-                handleSwipeGesture();
-            }, {passive: true});
-            
-            // Handle swipe gesture
-            function handleSwipeGesture() {
-                const deltaX = touchEndX - touchStartX;
-                const deltaY = touchEndY - touchStartY;
-                
-                // Ignore vertical swipes (for scrolling)
-                if (Math.abs(deltaY) > Math.abs(deltaX)) return;
-                
-                // Horizontal swipe detection
-                if (Math.abs(deltaX) > minSwipeDistance) {
-                    if (deltaX > 0) {
-                        // Swipe right - previous page
-                        prevPage();
-                        // Haptic feedback if available
-                        if (window.navigator && navigator.vibrate) {
-                            navigator.vibrate(10);
-                        }
-                    } else {
-                        // Swipe left - next page
-                        nextPage();
-                        // Haptic feedback if available
-                        if (window.navigator && navigator.vibrate) {
-                            navigator.vibrate(10);
-                        }
-                    }
-                }
-            }
+            // CHANGED: Removed horizontal swipe gestures for vertical scroll mode
+            // Touch gestures are now handled by native vertical scrolling
             
             // Double tap for zoom toggle
             let lastTap = 0;
@@ -1544,12 +1589,13 @@
                 lastTap = currentTime;
             });
             
-            // Enhanced pinch zoom and pan support
+            // CHANGED: Enhanced pinch zoom for vertical scroll mode
             let initialPinchDistance = null;
             let currentScale = scale;
             let gestureStartTime = 0;
             let isGesturing = false;
             let lastGestureScale = 1;
+            let zoomOrigin = { x: 0, y: 0 };
             
             // Modern gesture event handlers for iOS Safari
             pdfContainer.addEventListener('gesturestart', function(e) {
@@ -1583,10 +1629,13 @@
                 // Re-enable smooth transitions
                 canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
                 
-                // Trigger re-render with new scale
+                // CHANGED: Re-render visible pages with new scale
                 setTimeout(() => {
-                    canvas.style.transform = ''; // Reset transform, let renderPage handle it
-                    queueRenderPage(currentPageNum);
+                    canvas.style.transform = ''; // Reset transform
+                    renderedPages.clear();
+                    visiblePages.forEach(pageNum => {
+                        renderPageVertical(pageNum);
+                    });
                     updateZoomButtons();
                     showToast(`Zoom: ${Math.round(scale * 100)}%`);
                 }, 50);
@@ -1630,10 +1679,13 @@
                     // Re-enable transitions
                     canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
                     
-                    // Trigger re-render with new scale
+                    // CHANGED: Re-render visible pages with new scale
                     setTimeout(() => {
                         canvas.style.transform = ''; // Reset transform
-                        queueRenderPage(currentPageNum);
+                        renderedPages.clear();
+                        visiblePages.forEach(pageNum => {
+                            renderPageVertical(pageNum);
+                        });
                         updateZoomButtons();
                         showToast(`Zoom: ${Math.round(scale * 100)}%`);
                     }, 50);
@@ -1745,18 +1797,22 @@
                     showToast(`Resumed from page ${savedPage}`);
                 }
                 
-                // Initial page render with immediate display
-                // Set fit width for mobile by default
-                if (window.innerWidth < 768 && !savedPage) {
-                    fitWidth = true;
+                // CHANGED: Initialize vertical scroll mode
+                fitWidth = true; // Always fit width for better mobile experience
+                initializeVerticalScroll();
+                
+                // Scroll to saved page or start
+                if (currentPageNum > 1) {
+                    setTimeout(() => {
+                        const pageElement = document.getElementById(`page-${currentPageNum}`);
+                        if (pageElement) {
+                            pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+                        }
+                    }, 100);
                 }
-                renderPage(currentPageNum);
                 
-                // Start preloading adjacent pages
-                preloadAdjacentPages();
-                
-                // Hide loading after first page renders
-                setTimeout(() => showLoading(false), 100);
+                // Hide loading after initialization
+                setTimeout(() => showLoading(false), 500);
                 
             }).catch(function(error) {
                 console.error('Error loading PDF:', error);
@@ -1766,35 +1822,122 @@
         }
         
         /**
-         * Render a specific page with caching
-         * @param {number} num - Page number to render
+         * CHANGED: Initialize vertical scroll mode with all pages
          */
-        async function renderPage(num) {
-            if (!pdfDoc) return;
+        function initializeVerticalScroll() {
+            const container = document.getElementById('pdfContainer');
+            container.innerHTML = ''; // Clear existing content
+            pageElements = [];
             
-            pageRendering = true;
-            
-            // Check cache first
-            if (pageCache.has(num)) {
-                displayCachedPage(num);
-                pageRendering = false;
-                updatePageDisplay();
-                checkAdDisplay();
-                return;
+            // Create page elements and ad containers
+            for (let i = 1; i <= totalPages; i++) {
+                // Create page element
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'pdf-page loading';
+                pageDiv.dataset.pageNum = i;
+                pageDiv.id = `page-${i}`;
+                
+                const canvas = document.createElement('canvas');
+                canvas.style.display = 'none';
+                pageDiv.appendChild(canvas);
+                
+                container.appendChild(pageDiv);
+                pageElements.push(pageDiv);
+                
+                // CHANGED: Insert ad container every 10 pages
+                if (i % 10 === 0 && i < totalPages) {
+                    const adContainer = document.createElement('div');
+                    adContainer.className = 'ad-container';
+                    adContainer.innerHTML = `
+                        <div style="padding: 10px; color: #666;">
+                            <h3 style="margin-bottom: 10px;">Advertisement</h3>
+                            <div id="ad-slot-${i / 10}">
+                                <!-- Ad scripts will be dynamically inserted -->
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Dynamically insert ad scripts after DOM is ready
+                    setTimeout(() => {
+                        const adSlot = adContainer.querySelector(`#ad-slot-${i / 10}`);
+                        if (adSlot) {
+                            const script = document.createElement('script');
+                            script.async = true;
+                            script.setAttribute('data-cfasync', 'false');
+                            script.src = '//tinysentgrowled.com/659cb4b7b49223ba9c2448ddbec930bd/invoke.js';
+                            adSlot.appendChild(script);
+                            
+                            const adDiv = document.createElement('div');
+                            adDiv.id = `container-659cb4b7b49223ba9c2448ddbec930bd-${i / 10}`;
+                            adSlot.appendChild(adDiv);
+                        }
+                    }, 100);
+                    container.appendChild(adContainer);
+                }
             }
             
+            // Setup intersection observer for lazy loading
+            setupIntersectionObserver();
+        }
+        
+        /**
+         * CHANGED: Setup IntersectionObserver for lazy loading
+         */
+        function setupIntersectionObserver() {
+            const options = {
+                root: document.getElementById('pdfContainer'),
+                rootMargin: '100px',
+                threshold: 0.01
+            };
+            
+            intersectionObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const pageNum = parseInt(entry.target.dataset.pageNum);
+                    
+                    if (entry.isIntersecting) {
+                        visiblePages.add(pageNum);
+                        if (!renderedPages.has(pageNum)) {
+                            renderPageVertical(pageNum);
+                        }
+                        
+                        // Update current page based on most visible page
+                        if (entry.intersectionRatio > 0.5) {
+                            currentPageNum = pageNum;
+                            updatePageDisplay();
+                            updateProgress();
+                            saveProgress();
+                        }
+                    } else {
+                        visiblePages.delete(pageNum);
+                    }
+                });
+            }, options);
+            
+            // Observe all page elements
+            pageElements.forEach(element => {
+                intersectionObserver.observe(element);
+            });
+        }
+        
+        /**
+         * CHANGED: Render a specific page in vertical scroll mode
+         */
+        async function renderPageVertical(num) {
+            if (!pdfDoc || renderedPages.has(num)) return;
+            
             try {
-                // Get page
                 const page = await pdfDoc.getPage(num);
-                const canvas = document.getElementById('pdfCanvas');
+                const pageElement = document.getElementById(`page-${num}`);
+                const canvas = pageElement.querySelector('canvas');
                 const ctx = canvas.getContext('2d');
                 
-                // Calculate scale
+                // Calculate scale for responsive width
                 let viewport;
-                if (fitWidth) {
-                    const containerWidth = document.getElementById('pdfContainer').clientWidth - 40;
+                const containerWidth = document.getElementById('pdfContainer').clientWidth - 40;
+                
+                if (fitWidth || window.innerWidth < 768) {
                     const pageWidth = page.getViewport({scale: 1}).width;
-                    scale = containerWidth / pageWidth;
+                    scale = Math.min(containerWidth / pageWidth, 2);
                 }
                 
                 viewport = page.getViewport({scale: scale});
@@ -1803,7 +1946,7 @@
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 
-                // Render PDF page with better quality
+                // Render PDF page
                 const renderContext = {
                     canvasContext: ctx,
                     viewport: viewport,
@@ -1812,31 +1955,58 @@
                 
                 await page.render(renderContext).promise;
                 
-                // Add fade-in animation class
-                canvas.classList.add('loaded');
+                // Show canvas and remove loading state
+                canvas.style.display = 'block';
+                pageElement.classList.remove('loading');
+                
+                // Mark as rendered
+                renderedPages.add(num);
                 
                 // Cache the rendered page
                 cachePage(num, canvas.toDataURL());
                 
-                pageRendering = false;
-                
-                if (pageNumPending !== null) {
-                    renderPage(pageNumPending);
-                    pageNumPending = null;
-                }
-                
-                // Update UI and save progress
-                updatePageDisplay();
-                updateProgress();
-                saveProgress();
-                checkAdDisplay();
-                
-                // Preload adjacent pages
-                preloadAdjacentPages();
-                
             } catch (error) {
-                console.error('Error rendering page:', error);
-                pageRendering = false;
+                console.error(`Error rendering page ${num}:`, error);
+            }
+        }
+        
+        /**
+         * Render a specific page with caching (compatibility wrapper)
+         * @param {number} num - Page number to render
+         */
+        async function renderPage(num) {
+            // CHANGED: Scroll to page in vertical mode
+            const pageElement = document.getElementById(`page-${num}`);
+            if (pageElement) {
+                pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        /**
+         * CHANGED: Update current page based on scroll position
+         */
+        function updateCurrentPageFromScroll() {
+            const container = document.getElementById('pdfContainer');
+            const scrollTop = container.scrollTop;
+            const containerHeight = container.clientHeight;
+            const scrollCenter = scrollTop + containerHeight / 2;
+            
+            // Find the page that contains the center of the viewport
+            for (let i = 0; i < pageElements.length; i++) {
+                const pageElement = pageElements[i];
+                const pageTop = pageElement.offsetTop;
+                const pageBottom = pageTop + pageElement.offsetHeight;
+                
+                if (scrollCenter >= pageTop && scrollCenter <= pageBottom) {
+                    const pageNum = parseInt(pageElement.dataset.pageNum);
+                    if (currentPageNum !== pageNum) {
+                        currentPageNum = pageNum;
+                        updatePageDisplay();
+                        updateProgress();
+                        saveProgress();
+                    }
+                    break;
+                }
             }
         }
         
@@ -1866,18 +2036,21 @@
         }
         
         /**
-         * Display cached page
+         * CHANGED: Display cached page for vertical mode
          */
         function displayCachedPage(pageNum) {
-            const canvas = document.getElementById('pdfCanvas');
+            const pageElement = document.getElementById(`page-${pageNum}`);
+            if (!pageElement) return;
+            
+            const canvas = pageElement.querySelector('canvas');
             const ctx = canvas.getContext('2d');
             const img = new Image();
             img.onload = function() {
                 canvas.width = img.width;
                 canvas.height = img.height;
                 ctx.drawImage(img, 0, 0);
-                // Add fade-in animation for cached pages too
-                canvas.classList.add('loaded');
+                canvas.style.display = 'block';
+                pageElement.classList.remove('loading');
             };
             img.src = pageCache.get(pageNum);
         }
@@ -1943,43 +2116,28 @@
         
         // ==================== Navigation Functions ====================
         /**
-         * Navigate to next page with animation
+         * CHANGED: Navigate to next page in vertical scroll
          */
         function nextPage() {
             if (currentPageNum < totalPages) {
-                transitionDirection = 'next';
-                if (pageTransitionEnabled) {
-                    animatePageTransition('left');
-                }
                 currentPageNum++;
-                queueRenderPage(currentPageNum);
-                pagesViewedSinceAd++;
-                pagesRead++;
-                
-                // Reset auto-scroll position when changing pages
-                if (autoScrollEnabled) {
-                    const container = document.getElementById('pdfContainer');
-                    container.scrollTop = 0;
+                const pageElement = document.getElementById(`page-${currentPageNum}`);
+                if (pageElement) {
+                    pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+                pagesRead++;
             }
         }
         
         /**
-         * Navigate to previous page with animation
+         * CHANGED: Navigate to previous page in vertical scroll
          */
         function prevPage() {
             if (currentPageNum > 1) {
-                transitionDirection = 'prev';
-                if (pageTransitionEnabled) {
-                    animatePageTransition('right');
-                }
                 currentPageNum--;
-                queueRenderPage(currentPageNum);
-                
-                // Reset auto-scroll position when changing pages
-                if (autoScrollEnabled) {
-                    const container = document.getElementById('pdfContainer');
-                    container.scrollTop = 0;
+                const pageElement = document.getElementById(`page-${currentPageNum}`);
+                if (pageElement) {
+                    pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }
         }
@@ -2035,24 +2193,26 @@
         
         // ==================== Zoom Functions ====================
         /**
-         * Zoom in the PDF - Smooth and responsive
+         * CHANGED: Zoom in for vertical scroll mode
          */
         function zoomIn() {
             if (scale < 4) {
-                // Smooth zoom increments
                 const increment = scale < 1 ? 0.1 : scale < 2 ? 0.25 : 0.5;
                 scale = Math.min(4, scale + increment);
                 fitWidth = false;
                 
-                // Save current scroll position
+                // Save scroll position
                 const container = document.getElementById('pdfContainer');
                 const scrollRatio = container.scrollTop / container.scrollHeight;
                 
-                // Clear cache and re-render
+                // Re-render visible pages
+                renderedPages.clear();
                 pageCache.clear();
-                queueRenderPage(currentPageNum);
+                visiblePages.forEach(pageNum => {
+                    renderPageVertical(pageNum);
+                });
                 
-                // Restore scroll position after render
+                // Restore scroll position
                 setTimeout(() => {
                     container.scrollTop = container.scrollHeight * scrollRatio;
                 }, 100);
@@ -2063,24 +2223,26 @@
         }
         
         /**
-         * Zoom out the PDF - Smooth and responsive
+         * CHANGED: Zoom out for vertical scroll mode
          */
         function zoomOut() {
             if (scale > 0.25) {
-                // Smooth zoom decrements
                 const decrement = scale <= 1 ? 0.1 : scale <= 2 ? 0.25 : 0.5;
                 scale = Math.max(0.25, scale - decrement);
                 fitWidth = false;
                 
-                // Save current scroll position
+                // Save scroll position
                 const container = document.getElementById('pdfContainer');
                 const scrollRatio = container.scrollTop / container.scrollHeight;
                 
-                // Clear cache and re-render
+                // Re-render visible pages
+                renderedPages.clear();
                 pageCache.clear();
-                queueRenderPage(currentPageNum);
+                visiblePages.forEach(pageNum => {
+                    renderPageVertical(pageNum);
+                });
                 
-                // Restore scroll position after render
+                // Restore scroll position
                 setTimeout(() => {
                     container.scrollTop = container.scrollHeight * scrollRatio;
                 }, 100);
@@ -2091,13 +2253,13 @@
         }
         
         /**
-         * Toggle fit to width mode
+         * CHANGED: Toggle fit to width mode for vertical scroll
          */
         function toggleFitWidth() {
             fitWidth = !fitWidth;
             const btn = document.getElementById('fitWidthBtn');
             
-            // Save current scroll position
+            // Save scroll position
             const container = document.getElementById('pdfContainer');
             const scrollRatio = container.scrollTop / container.scrollHeight;
             
@@ -2109,8 +2271,12 @@
                 showToast('Actual Size');
             }
             
+            // Re-render visible pages
+            renderedPages.clear();
             pageCache.clear();
-            queueRenderPage(currentPageNum);
+            visiblePages.forEach(pageNum => {
+                renderPageVertical(pageNum);
+            });
             
             // Restore scroll position
             setTimeout(() => {
@@ -2212,13 +2378,11 @@
         
         // ==================== Ad Functions ====================
         /**
-         * Check if ad should be displayed after page navigation
+         * CHANGED: Ad display is now handled inline in vertical scroll
          */
         function checkAdDisplay() {
-            if (pagesViewedSinceAd >= adInterval) {
-                showAdModal();
-                pagesViewedSinceAd = 0;
-            }
+            // Ads are now displayed inline every 10 pages in the vertical scroll
+            // This function is kept for compatibility but no longer shows modal ads
         }
         
         /**
@@ -2499,6 +2663,19 @@
         }
         
         /**
+         * CHANGED: Cleanup function when leaving page
+         */
+        window.addEventListener('beforeunload', function() {
+            if (intersectionObserver) {
+                intersectionObserver.disconnect();
+            }
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+            }
+            saveProgress();
+        });
+        
+        /**
          * Enter Focus Mode
          */
         function enterFocusMode() {
@@ -2657,20 +2834,12 @@
                 const scrollStep = autoScrollSpeed / 60; // Convert to pixels per frame
                 container.scrollTop += scrollStep;
                 
-                // Check if we've reached the bottom of the page
+                // CHANGED: Auto-scroll for vertical mode
+                // Check if we've reached the bottom of the document
                 if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
-                    // Auto advance to next page
-                    if (currentPageNum < totalPages) {
-                        nextPage();
-                        // Scroll to top of new page
-                        setTimeout(() => {
-                            container.scrollTop = 0;
-                        }, 500);
-                    } else {
-                        // Reached end of document
-                        stopAutoScroll();
-                        showToast('End of Document');
-                    }
+                    // Reached end of document
+                    stopAutoScroll();
+                    showToast('End of Document');
                 }
             }, 1000 / 60); // 60 FPS
         }
