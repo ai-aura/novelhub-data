@@ -3,7 +3,7 @@
 <head>
     <!-- CHANGED: progressive render, mobile high-DPR rendering, cache, ad insertion logic, back navigation -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Online PDF Reader - Fast & Modern</title>
     
     <!-- PDF.js CDN -->
@@ -514,20 +514,16 @@
             display: block;
             padding: 20px 0;
             overflow-y: auto;
-            overflow-x: auto;
+            overflow-x: hidden;
             width: 100%;
             height: calc(100vh - calc(var(--toolbar-height) * 2));
             /* Enhanced mobile scrolling */
             -webkit-overflow-scrolling: touch;
             scroll-behavior: smooth;
-            touch-action: pan-y pan-x pinch-zoom;
+            touch-action: pan-y pinch-zoom;
             /* Ensure proper stacking */
             transform: translateZ(0);
             will-change: transform;
-            /* Momentum scrolling on iOS */
-            -webkit-transform: translateZ(0);
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
         }
         
         /* CHANGED: Multiple canvas support for vertical scroll */
@@ -806,20 +802,6 @@
             }
         }
         
-        /* Enhanced mobile touch targets */
-        @media (max-width: 768px) {
-            .btn {
-                min-width: 44px;
-                min-height: 44px;
-                touch-action: manipulation;
-            }
-            
-            .page-info {
-                touch-action: none;
-                user-select: none;
-            }
-        }
-        
         /* Error Message */
         .error-message {
             text-align: center;
@@ -902,16 +884,12 @@
                 height: calc(100vh - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
                 padding: 10px 5px;
                 overflow-y: auto;
-                overflow-x: auto;
+                overflow-x: hidden;
                 -webkit-overflow-scrolling: touch;
                 /* Enhanced touch support */
-                touch-action: pan-y pan-x pinch-zoom;
+                touch-action: pan-y pinch-zoom;
                 transform: translateZ(0);
                 will-change: transform;
-                /* iOS momentum scrolling */
-                -webkit-transform: translateZ(0);
-                -webkit-backface-visibility: hidden;
-                backface-visibility: hidden;
             }
             
             /* Toolbar optimization */
@@ -1041,14 +1019,10 @@
                 height: calc(100vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
                 padding: 5px 3px;
                 overflow-y: auto;
-                overflow-x: auto;
+                overflow-x: hidden;
                 /* Enhanced touch for small screens */
-                touch-action: pan-y pan-x pinch-zoom;
+                touch-action: pan-y pinch-zoom;
                 transform: translateZ(0);
-                /* Performance optimizations */
-                -webkit-transform: translateZ(0);
-                -webkit-backface-visibility: hidden;
-                backface-visibility: hidden;
             }
             
             .top-toolbar {
@@ -1339,10 +1313,9 @@
         let intersectionObserver = null;
         let lastScrollPosition = 0;
         let pagesScrolledCount = 0;
-        window.renderedPages = renderedPages; // Fix: Initialize global reference
         
         // CHANGED: Performance and caching variables
-        let devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 for performance
+        let devicePixelRatio = window.devicePixelRatio || 1;
         let renderQueue = [];
         let isRenderingQueue = false;
         let nativePopupLastShown = 0;
@@ -1350,7 +1323,6 @@
         let adObserver = null;
         const MAX_HIGH_RES_CANVASES = 6; // Current page ± 2
         const CACHE_NAME = 'novelhub-pdfs';
-        let firstRenderComplete = false;
         
         // Page cache system
         const pageCache = new Map();
@@ -1396,8 +1368,6 @@
             
             // CHANGED: Load the PDF with cache check and handle errors
             if (pdfUrl) {
-                // Show loading immediately
-                showLoading(true);
                 loadPDFWithCache(pdfUrl).catch(error => {
                     console.error('Failed to load PDF:', error);
                     // Fallback: try direct load without cache
@@ -1602,92 +1572,97 @@
                     updateCurrentPageFromScroll();
                 }, 150);
             }, { passive: true });
-        
-        // Removed duplicate function - keeping the enhanced version above
+        }
 
         /**
-         * Setup mobile gesture controls - Enhanced version
+         * Setup mobile gesture controls
          */
         function setupMobileGestures() {
             if (!('ontouchstart' in window)) return;
             
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+            const minSwipeDistance = 50;
+            
             const pdfContainer = document.getElementById('pdfContainer');
             
-            // Enhanced double-tap zoom with position tracking
-            let lastTap = 0;
-            let doubleTapX = 0;
-            let doubleTapY = 0;
+            // CHANGED: Removed horizontal swipe gestures for vertical scroll mode
+            // Touch gestures are now handled by native vertical scrolling
             
+            // CHANGED: Double tap toggles between fit width and 150% zoom
+            let lastTap = 0;
             pdfContainer.addEventListener('touchend', function(e) {
                 const currentTime = new Date().getTime();
                 const tapLength = currentTime - lastTap;
                 
-                if (tapLength < 300 && tapLength > 0 && e.changedTouches.length === 1) {
+                if (tapLength < 300 && tapLength > 0) {
                     e.preventDefault();
-                    const touch = e.changedTouches[0];
-                    doubleTapX = touch.clientX;
-                    doubleTapY = touch.clientY;
-                    
-                    // Cycle through zoom levels: Fit -> 150% -> 200% -> Fit
+                    // CHANGED: Toggle between fit width and 150% zoom
                     if (fitWidth) {
                         fitWidth = false;
                         scale = 1.5;
                         showToast('150% Zoom');
-                    } else if (scale < 1.8) {
-                        scale = 2.0;
-                        showToast('200% Zoom');
                     } else {
                         fitWidth = true;
                         showToast('Fit to Width');
                     }
-                    
                     debounceRerender();
                 }
                 lastTap = currentTime;
             });
             
-            // Enhanced pinch zoom for improved mobile experience
+            // CHANGED: Enhanced pinch zoom for vertical scroll mode
             let initialPinchDistance = null;
-            let pinchStartScale = scale;
+            let currentScale = scale;
+            let gestureStartTime = 0;
             let isGesturing = false;
+            let lastGestureScale = 1;
+            let zoomOrigin = { x: 0, y: 0 };
             
-            // iOS Safari gesture handlers for smooth pinch zoom
+            // Modern gesture event handlers for iOS Safari
             pdfContainer.addEventListener('gesturestart', function(e) {
                 e.preventDefault();
                 isGesturing = true;
-                pinchStartScale = scale;
-                pdfContainer.style.overflow = 'hidden';
+                gestureStartTime = Date.now();
+                currentScale = scale;
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transition = 'none'; // Disable transitions during gesture
             });
             
             pdfContainer.addEventListener('gesturechange', function(e) {
                 e.preventDefault();
                 if (!isGesturing) return;
                 
-                const newScale = Math.min(3, Math.max(0.5, pinchStartScale * e.scale));
+                const newScale = Math.min(4, Math.max(0.25, currentScale * e.scale));
                 scale = newScale;
+                lastGestureScale = e.scale;
                 fitWidth = false;
                 
-                // Apply lightweight transform for instant feedback
-                requestAnimationFrame(() => {
-                    applyZoomTransform(e.scale);
-                });
+                // Apply transform directly for smooth feedback
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transform = `scale(${scale})`;
             });
             
             pdfContainer.addEventListener('gestureend', function(e) {
                 e.preventDefault();
                 isGesturing = false;
-                pdfContainer.style.overflow = 'auto';
                 
-                // Clear transforms and re-render at quality
-                clearZoomTransforms();
+                const canvas = document.getElementById('pdfCanvas');
+                // Re-enable smooth transitions
+                canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                
+                // CHANGED: Re-render with debounce
                 setTimeout(() => {
+                    canvas.style.transform = ''; // Reset transform
                     debounceRerender();
                     updateZoomButtons();
                     showToast(`Zoom: ${Math.round(scale * 100)}%`);
                 }, 50);
             });
             
-            // Android pinch zoom fallback
+            // Fallback pinch zoom for Android and other devices
             pdfContainer.addEventListener('touchmove', function(e) {
                 if (e.touches.length === 2 && !isGesturing) {
                     e.preventDefault();
@@ -1701,18 +1676,18 @@
                     
                     if (!initialPinchDistance) {
                         initialPinchDistance = distance;
-                        pinchStartScale = scale;
-                        pdfContainer.style.overflow = 'hidden';
+                        currentScale = scale;
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transition = 'none';
                     } else {
                         const pinchScale = distance / initialPinchDistance;
-                        const newScale = Math.min(3, Math.max(0.5, pinchStartScale * pinchScale));
+                        const newScale = Math.min(4, Math.max(0.25, currentScale * pinchScale));
                         scale = newScale;
                         fitWidth = false;
                         
-                        // Lightweight preview
-                        requestAnimationFrame(() => {
-                            applyZoomTransform(pinchScale);
-                        });
+                        // Apply smooth transform during pinch
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transform = `scale(${scale})`;
                     }
                 }
             }, {passive: false});
@@ -1720,11 +1695,14 @@
             pdfContainer.addEventListener('touchend', function(e) {
                 if (e.touches.length < 2 && initialPinchDistance) {
                     initialPinchDistance = null;
-                    pdfContainer.style.overflow = 'auto';
                     
-                    // Clear and re-render
-                    clearZoomTransforms();
+                    const canvas = document.getElementById('pdfCanvas');
+                    // Re-enable transitions
+                    canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                    
+                    // CHANGED: Re-render with debounce
                     setTimeout(() => {
+                        canvas.style.transform = ''; // Reset transform
                         debounceRerender();
                         updateZoomButtons();
                         showToast(`Zoom: ${Math.round(scale * 100)}%`);
@@ -1732,7 +1710,7 @@
                 }
             });
             
-            // Three-finger tap to toggle toolbars
+            // Three-finger tap to toggle toolbars (mobile-specific)
             let threeFingerTapTimeout = null;
             pdfContainer.addEventListener('touchstart', function(e) {
                 if (e.touches.length === 3) {
@@ -1744,10 +1722,11 @@
                 }
             });
             
-            // Edge swipe gesture for toolbar visibility
+            // Edge swipe to show/hide toolbars
             let edgeSwipeStart = null;
             pdfContainer.addEventListener('touchstart', function(e) {
                 const touch = e.touches[0];
+                // Check if swipe started from top or bottom edge
                 if (touch.clientY < 50 || touch.clientY > window.innerHeight - 50) {
                     edgeSwipeStart = touch.clientY;
                 }
@@ -1758,6 +1737,179 @@
                     const touch = e.changedTouches[0];
                     const deltaY = touch.clientY - edgeSwipeStart;
                     
+                    // Swipe down from top or up from bottom
+                    if (Math.abs(deltaY) > 30) {
+                        toggleMobileToolbars();
+                    }
+                    edgeSwipeStart = null;
+                }
+            });
+        }
+
+        /**
+         * Setup mobile gesture controls
+         */
+        function setupMobileGestures() {
+            if (!('ontouchstart' in window)) return;
+            
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+            const minSwipeDistance = 50;
+            
+            const pdfContainer = document.getElementById('pdfContainer');
+            
+            // CHANGED: Removed horizontal swipe gestures for vertical scroll mode
+            // Touch gestures are now handled by native vertical scrolling
+            
+            // CHANGED: Double tap toggles between fit width and 150% zoom
+            let lastTap = 0;
+            pdfContainer.addEventListener('touchend', function(e) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                
+                if (tapLength < 300 && tapLength > 0) {
+                    e.preventDefault();
+                    // CHANGED: Toggle between fit width and 150% zoom
+                    if (fitWidth) {
+                        fitWidth = false;
+                        scale = 1.5;
+                        showToast('150% Zoom');
+                    } else {
+                        fitWidth = true;
+                        showToast('Fit to Width');
+                    }
+                    debounceRerender();
+                }
+                lastTap = currentTime;
+            });
+            
+            // CHANGED: Enhanced pinch zoom for vertical scroll mode
+            let initialPinchDistance = null;
+            let currentScale = scale;
+            let gestureStartTime = 0;
+            let isGesturing = false;
+            let lastGestureScale = 1;
+            let zoomOrigin = { x: 0, y: 0 };
+            
+            // Modern gesture event handlers for iOS Safari
+            pdfContainer.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+                isGesturing = true;
+                gestureStartTime = Date.now();
+                currentScale = scale;
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transition = 'none'; // Disable transitions during gesture
+            });
+            
+            pdfContainer.addEventListener('gesturechange', function(e) {
+                e.preventDefault();
+                if (!isGesturing) return;
+                
+                const newScale = Math.min(4, Math.max(0.25, currentScale * e.scale));
+                scale = newScale;
+                lastGestureScale = e.scale;
+                fitWidth = false;
+                
+                // Apply transform directly for smooth feedback
+                const canvas = document.getElementById('pdfCanvas');
+                canvas.style.transform = `scale(${scale})`;
+            });
+            
+            pdfContainer.addEventListener('gestureend', function(e) {
+                e.preventDefault();
+                isGesturing = false;
+                
+                const canvas = document.getElementById('pdfCanvas');
+                // Re-enable smooth transitions
+                canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                
+                // CHANGED: Re-render with debounce
+                setTimeout(() => {
+                    canvas.style.transform = ''; // Reset transform
+                    debounceRerender();
+                    updateZoomButtons();
+                    showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                }, 50);
+            });
+            
+            // Fallback pinch zoom for Android and other devices
+            pdfContainer.addEventListener('touchmove', function(e) {
+                if (e.touches.length === 2 && !isGesturing) {
+                    e.preventDefault();
+                    
+                    const touch1 = e.touches[0];
+                    const touch2 = e.touches[1];
+                    const distance = Math.hypot(
+                        touch2.pageX - touch1.pageX,
+                        touch2.pageY - touch1.pageY
+                    );
+                    
+                    if (!initialPinchDistance) {
+                        initialPinchDistance = distance;
+                        currentScale = scale;
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transition = 'none';
+                    } else {
+                        const pinchScale = distance / initialPinchDistance;
+                        const newScale = Math.min(4, Math.max(0.25, currentScale * pinchScale));
+                        scale = newScale;
+                        fitWidth = false;
+                        
+                        // Apply smooth transform during pinch
+                        const canvas = document.getElementById('pdfCanvas');
+                        canvas.style.transform = `scale(${scale})`;
+                    }
+                }
+            }, {passive: false});
+            
+            pdfContainer.addEventListener('touchend', function(e) {
+                if (e.touches.length < 2 && initialPinchDistance) {
+                    initialPinchDistance = null;
+                    
+                    const canvas = document.getElementById('pdfCanvas');
+                    // Re-enable transitions
+                    canvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, scale 0.3s ease-out';
+                    
+                    // CHANGED: Re-render with debounce
+                    setTimeout(() => {
+                        canvas.style.transform = ''; // Reset transform
+                        debounceRerender();
+                        updateZoomButtons();
+                        showToast(`Zoom: ${Math.round(scale * 100)}%`);
+                    }, 50);
+                }
+            });
+            
+            // Three-finger tap to toggle toolbars (mobile-specific)
+            let threeFingerTapTimeout = null;
+            pdfContainer.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 3) {
+                    e.preventDefault();
+                    if (threeFingerTapTimeout) clearTimeout(threeFingerTapTimeout);
+                    threeFingerTapTimeout = setTimeout(() => {
+                        toggleMobileToolbars();
+                    }, 200);
+                }
+            });
+            
+            // Edge swipe to show/hide toolbars
+            let edgeSwipeStart = null;
+            pdfContainer.addEventListener('touchstart', function(e) {
+                const touch = e.touches[0];
+                // Check if swipe started from top or bottom edge
+                if (touch.clientY < 50 || touch.clientY > window.innerHeight - 50) {
+                    edgeSwipeStart = touch.clientY;
+                }
+            });
+            
+            pdfContainer.addEventListener('touchend', function(e) {
+                if (edgeSwipeStart !== null) {
+                    const touch = e.changedTouches[0];
+                    const deltaY = touch.clientY - edgeSwipeStart;
+                    
+                    // Swipe down from top or up from bottom
                     if (Math.abs(deltaY) > 30) {
                         toggleMobileToolbars();
                     }
@@ -1892,29 +2044,17 @@
                     document.getElementById('progressBar').style.width = percent + '%';
                     
                     // CHANGED: Start rendering as soon as minimal data is available
-                    if (percent > 2 && !progressivePageData.has(1) && pdfDoc === null) {
+                    if (percent > 5 && !progressivePageData.has(1) && pdfDoc === null) {
                         progressivePageData.set(1, true);
-                        // Trigger immediate render attempt
+                        // Attempt early render if PDF structure allows
                         loadingTask.promise.then(pdf => {
-                            if (!pdfDoc && pdf) {
+                            if (!pdfDoc) {
                                 pdfDoc = pdf;
-                                totalPages = pdf.numPages;
-                                // Initialize UI immediately
-                                document.getElementById('totalPages').textContent = totalPages;
-                                // Start rendering first page immediately
+                                // Trigger early render of first page
                                 if (pdf.numPages >= 1) {
-                                    initializeVerticalScroll();
-                                    renderPageVertical(1, true).then(() => {
-                                        // Hide loading after first page renders
-                                        if (!firstRenderComplete) {
-                                            firstRenderComplete = true;
-                                            showLoading(false);
-                                        }
-                                    });
+                                    renderPageVertical(1, true);
                                 }
                             }
-                        }).catch(err => {
-                            console.error('Early render failed:', err);
                         });
                     }
                 }
@@ -1938,40 +2078,63 @@
                 
                 // CHANGED: Initialize vertical scroll mode
                 fitWidth = true; // Always fit width for better mobile experience
+                initializeVerticalScroll();
                 
-                // Only initialize if not already done in progress callback
-                if (!progressivePageData.has(1)) {
-                    initializeVerticalScroll();
-                    
-                    // Render first page immediately
-                    renderPageVertical(currentPageNum, true).then(() => {
-                        if (!firstRenderComplete) {
-                            firstRenderComplete = true;
-                            showLoading(false);
-                        }
-                        // Preload adjacent pages
-                        preloadAdjacentPagesOptimized(currentPageNum);
-                    }).catch(err => {
-                        console.error('First page render failed:', err);
-                        showLoading(false);
-                    });
-                }
-                
-                // CHANGED: Simplified watchdog - hide loading after 3s max
-                const _ch_watchdog = setTimeout(() => {
-                    showLoading(false);
-                }, 3000);
-                window._ch_watchdog = _ch_watchdog;
-                
-                // Scroll to saved position if needed
-                if (currentPageNum > 1) {
-                    const pageElement = document.getElementById(`page-${currentPageNum}`);
-                    if (pageElement) {
-                        setTimeout(() => {
-                            pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-                        }, 100);
+                // CHANGED: ensure first visible page renders immediately (fix stall)
+                setTimeout(() => {
+                    if (typeof totalPages === 'number' && totalPages > 0) {
+                        // CHANGED: render first visible page immediately
+                        (async () => {
+                            try {
+                                await renderPageVertical(currentPageNum || 1);
+                            } catch (e) {
+                                console.error('CHANGED: forced first render failed', e);
+                            }
+                            // CHANGED: hide loader after attempting render
+                            try { showLoading(false); } catch(e){/* graceful */} 
+                        })();
+                    } else {
+                        console.error('CHANGED: PDF loaded but totalPages is', totalPages);
+                        try { showError('Unable to parse document (empty or invalid PDF).'); } catch(e){/* graceful */}
+                        try { showLoading(false); } catch(e){/* graceful */}
                     }
-                }
+                }, 80);
+                
+                // CHANGED: watchdog to unstick loader if first render doesn't happen
+                const _ch_watchdog = setTimeout(() => {
+                    if (!window.renderedPages || (window.renderedPages && window.renderedPages.size === 0)) {
+                        console.warn('CHANGED: Watchdog: no pages rendered yet — forcing UI to continue.');
+                        try { showLoading(false); } catch(e){/* graceful */}
+                        try { showToast && showToast('Rendering delayed — content should appear momentarily.'); } catch(e){/* graceful */}
+                    }
+                }, 5000);
+                window._ch_watchdog = _ch_watchdog; // Store globally for cleanup
+                
+                // CHANGED: Render first visible page immediately for sub-800ms load
+                const firstPageToRender = currentPageNum || 1;
+                requestAnimationFrame(() => {
+                    const pageElement = document.getElementById(`page-${firstPageToRender}`);
+                    if (pageElement) {
+                        if (firstPageToRender > 1) {
+                            pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+                        }
+                        // Priority render with immediate display
+                        renderPageVertical(firstPageToRender, true).then(() => {
+                            // CHANGED: Clear watchdog after successful render
+                            if (window._ch_watchdog) {
+                                clearTimeout(window._ch_watchdog);
+                                window._ch_watchdog = null;
+                            }
+                            // Preload adjacent pages in background
+                            requestIdleCallback(() => {
+                                preloadAdjacentPagesOptimized(firstPageToRender);
+                            }, { timeout: 500 });
+                        });
+                    }
+                });
+                
+                // CHANGED: Hide loading immediately after first page starts rendering
+                requestAnimationFrame(() => showLoading(false));
                 
             }).catch(function(error) {
                 console.error('Error loading PDF:', error);
@@ -2003,7 +2166,7 @@
                 container.appendChild(pageDiv);
                 pageElements.push(pageDiv);
                 
-                // CHANGED: Insert ad container every 10 pages with proper initialization
+                // CHANGED: Insert ad container every 10 pages with lazy loading
                 if (i % 10 === 0 && i < totalPages) {
                     const adContainer = document.createElement('div');
                     adContainer.className = 'ad-container';
@@ -2011,14 +2174,12 @@
                     adContainer.setAttribute('aria-label', 'Advertisement');
                     adContainer.dataset.pageNum = i;
                     adContainer.dataset.adLoaded = 'false';
+                    // CHANGED: Use proper slot ID format for banner ads
                     adContainer.innerHTML = `
-                        <div style="padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                            <h3 style="margin-bottom: 10px; color: #666; font-size: 14px;">Advertisement</h3>
+                        <div style="padding: 10px; color: #666;">
+                            <h3 style="margin-bottom: 10px;">Advertisement</h3>
                             <div id="ad-slot-after-${i}" data-ad-injected="false">
-                                <ins class="adsbygoogle"
-                                     style="display:block"
-                                     data-ad-format="auto"
-                                     data-full-width-responsive="true"></ins>
+                                <!-- Banner ad will be loaded when visible -->
                             </div>
                         </div>
                     `;
@@ -2111,20 +2272,20 @@
                     baseScale = Math.min(containerWidth / pageWidth, 2);
                 }
                 
-                // CHANGED: Optimized scale calculation for mobile
-                const effectivePixelRatio = window.innerWidth < 768 ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2);
-                const renderScale = baseScale * effectivePixelRatio;
+                // CHANGED: Use device pixel ratio for sharp mobile rendering, cap at 2x for performance
+                const renderScale = baseScale * Math.min(devicePixelRatio, 2);
                 const viewport = page.getViewport({scale: renderScale});
                 
                 // Set actual canvas size (in device pixels)
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
                 
-                // CHANGED: Set CSS size for correct display with device pixel ratio
-                canvas.style.width = (viewport.width / effectivePixelRatio) + 'px';
-                canvas.style.height = (viewport.height / effectivePixelRatio) + 'px';
+                // CHANGED: Scale canvas back down using CSS for correct display size
+                // CHANGED: Set CSS size for correct display
+                canvas.style.width = (viewport.width / devicePixelRatio) + 'px';
+                canvas.style.height = (viewport.height / devicePixelRatio) + 'px';
+                // Ensure responsive display
                 canvas.style.maxWidth = '100%';
-                canvas.style.objectFit = 'contain';
                 
                 // Render PDF page with high quality
                 const renderContext = {
@@ -2577,35 +2738,36 @@
         }
         
         /**
-         * CHANGED: Load banner ad with proper initialization
+         * CHANGED: Load banner ad dynamically when visible using injectAtOptionsAd
          */
         function loadBannerAd(container) {
             const pageNum = parseInt(container.dataset.pageNum) || 0;
             const slotId = `ad-slot-after-${pageNum}`;
             const slot = container.querySelector(`#${slotId}`);
             
-            if (!slot || slot.dataset.adInjected === 'true') {
+            if (!slot || slot.dataset.adInjected === 'true' || slot.dataset.adInjected === 'pending') {
                 return;
             }
             
-            // Mark as injected to prevent duplicate loading
-            slot.dataset.adInjected = 'true';
+            // CHANGED: Banner ad options from Adsterra
+            const bannerOptions = {
+                'key': 'b45e8fcc4b15142e0654ee06d1a2ea5c',
+                'format': 'iframe',
+                'height': 60,
+                'width': 468,
+                'params': {}
+            };
             
-            // Create a simple ad placeholder for demonstration
-            // Replace with your actual ad network code
-            slot.innerHTML = `
-                <div style="width: 100%; max-width: 468px; margin: 0 auto;">
-                    <div style="padding: 30px; background: linear-gradient(135deg, #667eea, #764ba2); 
-                                color: white; text-align: center; border-radius: 8px; font-size: 14px;">
-                        <strong>Advertisement Space</strong><br>
-                        <span style="font-size: 12px; opacity: 0.9;">Your ads will appear here</span>
-                    </div>
-                </div>
-            `;
-            
-            // If you have Google AdSense or another ad network, initialize it here
-            // Example for AdSense:
-            // (adsbygoogle = window.adsbygoogle || []).push({});
+            // CHANGED: Use injectAtOptionsAd to load banner
+            injectAtOptionsAd(slotId, bannerOptions, '//tinysentgrowled.com/659cb4b7b49223ba9c2448ddbec930bd/invoke.js')
+                .then(() => {
+                    console.log(`CHANGED: Banner ad loaded for page ${pageNum}`);
+                })
+                .catch(err => {
+                    console.error(`CHANGED: Banner ad failed for page ${pageNum}:`, err);
+                    // Fallback: show lightweight placeholder
+                    slot.innerHTML = '<div style="padding: 20px; background: #f0f0f0; text-align: center; color: #666;">Advertisement</div>';
+                });
         }
         
         /**
@@ -3291,33 +3453,6 @@
                 
                 showToast('Toolbars Hidden - Swipe edge to show');
             }
-        }
-        
-        /**
-         * Apply zoom transform for live preview
-         */
-        function applyZoomTransform(gestureScale) {
-            visiblePages.forEach(pageNum => {
-                const pageElement = document.getElementById(`page-${pageNum}`);
-                if (pageElement) {
-                    const canvas = pageElement.querySelector('canvas');
-                    if (canvas && canvas.style.display !== 'none') {
-                        canvas.style.transform = `scale(${gestureScale})`;
-                        canvas.style.transformOrigin = 'center center';
-                        canvas.style.transition = 'none';
-                    }
-                }
-            });
-        }
-        
-        /**
-         * Clear zoom transforms after gesture
-         */
-        function clearZoomTransforms() {
-            document.querySelectorAll('.pdf-page canvas').forEach(canvas => {
-                canvas.style.transform = '';
-                canvas.style.transition = '';
-            });
         }
         
         /**
